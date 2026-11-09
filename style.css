@@ -1,0 +1,275 @@
+/* ---------- 1. Variables: change colours here, everything updates ---------- */
+:root {
+  --bg: #ecebe7;       /* warm light grey, like TE hardware */
+  --panel: #f6f5f2;    /* cards */
+  --ink: #161616;      /* main text */
+  --muted: #77756f;    /* secondary text */
+  --line: #d3d1cb;     /* borders */
+  --accent: #ff4f00;   /* TE orange */
+  --sidebar-w: 300px;
+}
+ 
+/* automatic dark mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141413;
+    --panel: #1d1d1b;
+    --ink: #ecebe7;
+    --muted: #8f8d86;
+    --line: #33322f;
+    --accent: #ff6a26;
+  }
+}
+ 
+/* ---------- 2. Reset: removes browser default spacing and blue links ---------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+ 
+body {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  background: var(--bg);
+  color: var(--ink);
+}
+ 
+a {
+  color: inherit;
+  text-decoration: none;
+}
+ 
+img {
+  max-width: 100%;
+  display: block;
+}
+
+.logo,
+.nav a,
+.num,
+.email {
+  font-family: "Doto", monospace;
+  font-weight: 900;
+}
+
+
+.logo {
+  font-size: 30px;
+  letter-spacing: 0.04em;
+}
+
+.nav a {
+  font-size: 16px;
+  letter-spacing: 0.06em;
+  transition: color 0.15s;
+}
+
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between; /* logo left, nav right */
+  align-items: center;
+  padding: 24px 32px;
+  background: var(--bg);
+  z-index: 10;
+}
+
+.nav {
+  display: flex;
+  gap: 28px;
+}
+
+.sidebar {
+  position: fixed;
+  left: 0;
+  bottom: 32px;
+  width: var(--sidebar-w);
+  padding: 0 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+main {
+  margin-left: var(--sidebar-w);
+  padding: 120px 32px 80px;
+  max-width: 1200px;
+  display: grid;
+  gap: 80px;
+}
+
+/* highlight the current page and hovered links */
+.nav a:hover,
+.nav a.active,
+.links a:hover {
+  color: var(--accent);
+}
+
+.intro {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* project cards */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.project {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.thumb {
+  aspect-ratio: 16 / 10;
+  background-image: radial-gradient(var(--line) 1.2px, transparent 1.2px);
+  background-size: 10px 10px;
+}
+
+.tag {
+  align-self: flex-start;
+  font-size: 10px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 1px 6px;
+}
+
+.project p {
+  color: var(--muted);
+  font-size: 13px;
+}
+/* small uppercase labels */
+.label {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.links a {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+/* card hover */
+.project {
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.project:hover {
+  border-color: var(--ink);
+  transform: translateY(-2px);
+}
+
+.project:hover .more {
+  color: var(--accent);
+}
+
+/* placeholder label in the dotted box */
+.thumb {
+  background-color: var(--bg);
+  border-radius: 3px;
+  display: grid;
+  place-items: center;
+}
+
+.thumb span {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  background: var(--panel);
+  padding: 2px 8px;
+}
+
+/* number + tags row */
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.num {
+  font-size: 18px;
+  color: var(--accent);
+  margin-right: auto;
+}
+
+.tag {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.project h3 {
+  font-size: 16px;
+}
+
+.project p {
+  flex: 1;
+}
+
+.more {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+
+.email {
+  font-size: clamp(22px, 4vw, 40px);
+  margin-top: 8px;
+}
+
+/* phones */
+@media (max-width: 760px) {
+  .navbar { padding: 20px; }
+  .nav { gap: 16px; }
+  .nav a { font-size: 14px; }
+  .logo { font-size: 22px; }
+
+  main {
+    margin-left: 0;
+    padding: 96px 20px 48px;
+  }
+
+  .sidebar {
+    position: static;
+    width: auto;
+    padding: 0 20px 40px;
+  }
+}
+
+.description {
+  font-size: 16px;
+  max-width: 40ch;
+  margin-top: 12px;
+  font-weight: 400;
+}
+
