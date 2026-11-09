@@ -6,7 +6,7 @@
   --muted: #77756f;    /* secondary text */
   --line: #d3d1cb;     /* borders */
   --accent: #ff4f00;   /* TE orange */
-  --sidebar-w: 300px;
+  --sidebar-w: 320px;
 }
  
 /* automatic dark mode */
@@ -56,7 +56,7 @@ img {
 
 
 .logo {
-  font-size: 30px;
+  font-size: 26px;
   letter-spacing: 0.04em;
 }
 
