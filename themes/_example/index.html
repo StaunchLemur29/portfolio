@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Example | Projects</title>
+  <!-- Before the page draws: apply light/dark, and a theme if one was picked on an
+       earlier page. Themes last while clicking between pages, but a reload goes back
+       to Original. Nothing else downloads unless a theme is active. -->
+  <script>
+    (function () {
+      var html = document.documentElement;
+      try {
+        var mode = localStorage.getItem('mode');
+        if (mode) html.dataset.mode = mode;
+        html.dataset.scheme = mode || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        html.style.colorScheme = html.dataset.scheme;
+        var nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+        if (nav && nav.type === 'reload') sessionStorage.removeItem('theme');
+        var preview = /^#preview-([\w-]+)/.exec(location.hash);
+        var theme = preview ? preview[1] : sessionStorage.getItem('theme');
+        if (theme && theme !== 'original') {
+          html.dataset.pendingTheme = theme;
+          html.classList.add('theme-loading');
+          setTimeout(function () { html.classList.remove('theme-loading'); }, 4000);
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Doto:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../style.css">
+  <script src="../../theme-core.js" defer></script>
+</head>
+<!-- Example site used only to take each theme's screenshot (preview.webp).
+     Open it with #preview-<theme> on the end, e.g. index.html#preview-saas -->
+<body data-page="projects">
+    <header class="navbar">
+        <a href="#" class="logo">Sam Taylor</a>
+        <nav class="nav">
+            <a href="#" class="active">PROJECTS</a>
+            <a href="#">TOOLS</a>
+            <a href="#">DESIGN</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <p class="label">projects / 06</p>
+            <h1>Projects</h1>
+            <p class="description">Websites, apps and small tools, built from scratch.</p>
+        </section>
+        <div class="grid">
+            <article class="project">
+                <div class="thumb"><img src="img/dashboard.svg" alt=""></div>
+                <div class="meta"><span class="tag">JavaScript</span><span class="tag">SQL</span></div>
+                <h3>Sales Dashboard</h3>
+                <p>Live numbers for a small online shop, updated every minute.</p>
+                <a href="#" class="more">VIEW PROJECT →</a>
+            </article>
+            <article class="project">
+                <div class="thumb"><img src="img/map.svg" alt=""></div>
+                <div class="meta"><span class="tag">Python</span><span class="tag">Maps</span></div>
+                <h3>Route Planner</h3>
+                <p>Finds the quickest walking route between two places in the city.</p>
+                <a href="#" class="more">VIEW PROJECT →</a>
+            </article>
+            <article class="project">
+                <div class="thumb"><img src="img/code.svg" alt=""></div>
+                <div class="meta"><span class="tag">Python</span><span class="tag">SQL</span></div>
+                <h3>Statement Sorter</h3>
+                <p>Groups thousands of bank transactions into tidy categories.</p>
+                <a href="#" class="more">VIEW PROJECT →</a>
+            </article>
+            <article class="project">
+                <div class="thumb"><img src="img/phone.svg" alt=""></div>
+                <div class="meta"><span class="tag">HTML</span><span class="tag">CSS</span></div>
+                <h3>Habit Tracker</h3>
+                <p>A tiny phone app that keeps track of daily goals.</p>
+                <a href="#" class="more">VIEW PROJECT →</a>
+            </article>
+            <article class="project">
+                <div class="thumb"><img src="img/chart.svg" alt=""></div>
+                <div class="meta"><span class="tag">Python</span><span class="tag">Excel</span></div>
+                <h3>Report Builder</h3>
+                <p>Turns a spreadsheet into clean monthly charts.</p>
+                <a href="#" class="more">VIEW PROJECT →</a>
+            </article>
+            <article class="project">
+                <div class="thumb"><img src="img/photo.svg" alt=""></div>
+                <div class="meta"><span class="tag">HTML</span><span class="tag">JavaScript</span></div>
+                <h3>Photo Journal</h3>
+                <p>A simple blog for travel photos and short stories.</p>
+                <a href="#" class="more">VIEW PROJECT →</a>
+            </article>
+        </div>
+    </main>
+
+    <aside class="sidebar">
+        <p class="intro">Student developer who likes building small, useful things.</p>
+        <div class="links">
+            <div id="theme-controls-slot"></div>
+            <a href="https://github.com">GITHUB ↗</a>
+            <a href="mailto:hello@example.com">EMAIL ↗</a>
+        </div>
+    </aside>
+</body>
+</html>

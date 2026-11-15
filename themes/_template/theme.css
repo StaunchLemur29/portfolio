@@ -1,0 +1,43 @@
+/* Your theme's CSS. Only loaded while this theme is active.
+   Start every rule with .theme-template (your folder name) so nothing
+   leaks into other themes. style.css's reset (no margins, box-sizing,
+   plain links) still applies underneath. */
+
+/* the page background behind your layout */
+html[data-site-theme="template"] body { background: #fafafa; }
+html[data-site-theme="template"][data-scheme="dark"] body { background: #111; }
+
+/* colours as variables, swapped for dark mode */
+.theme-template {
+  --bg: #fafafa;
+  --ink: #111;
+  --accent: #ff4f00;
+}
+:root[data-scheme="dark"] .theme-template {
+  --bg: #111;
+  --ink: #f2f2f2;
+}
+
+.tp {
+  min-height: 100dvh;
+  padding: 24px max(16px, env(safe-area-inset-right, 0px)) 24px max(16px, env(safe-area-inset-left, 0px));
+  color: var(--ink);
+  background: var(--bg);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+}
+
+.tp-head { display: flex; align-items: center; gap: 24px; }
+.tp-head nav { display: flex; gap: 16px; margin-left: auto; }
+.tp-head .is-on { color: var(--accent); }
+
+.tp-main { padding: 64px 0; }
+.tp-main h1 { font-size: 48px; }
+
+.tp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 24px;
+  margin-top: 40px;
+}
+
+.tp-foot { display: flex; gap: 16px; }

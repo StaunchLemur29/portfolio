@@ -1,0 +1,334 @@
+/* PF-01: white, empty, tiny type. No boxes, no borders, no headings. */
+
+html[data-site-theme="pf-01"] body { background: #fff; }
+html[data-site-theme="pf-01"][data-scheme="dark"] body { background: #000; }
+
+.theme-pf-01 {
+  --bg: #ffffff;
+  --ink: #111111;
+  --soft: #8a8a8a;
+}
+:root[data-scheme="dark"] .theme-pf-01 {
+  --bg: #000000;
+  --ink: #f2f2f2;
+  --soft: #6f6f6f;
+}
+
+.yz {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 max(20px, env(safe-area-inset-right, 0px)) 0 max(20px, env(safe-area-inset-left, 0px));
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 10px/1.4 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* header: barely there */
+.yz-head {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 56px;
+  background: var(--bg);
+}
+
+.yz-logo {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+}
+
+.yz-nav {
+  display: flex;
+  gap: 18px;
+  margin-left: auto;
+}
+
+.yz-nav a { color: var(--soft); transition: color 0.2s; }
+.yz-nav a:hover,
+.yz-nav a.is-on { color: var(--ink); }
+
+.yz-count { min-width: 22px; text-align: right; color: var(--ink); }
+
+/* the shared buttons, made as quiet as everything else */
+.yz .theme-controls .tc-btn {
+  height: 22px;
+  padding: 0 8px;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--soft);
+  border: 0;
+  border-radius: 0;
+}
+.yz .theme-controls .tc-btn:hover { color: var(--ink); }
+.yz .theme-controls .tc-themes { width: 22px; padding: 0; justify-content: center; }
+.yz .theme-controls .tc-themes span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.yz .theme-controls .tc-btn svg { width: 13px; height: 13px; }
+.yz .theme-controls .tc-mode { width: 22px; }
+
+/* the grid: objects, lots of air */
+.yz-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 42vw), 1fr));
+  gap: 64px 24px;
+  padding: 72px 0 120px;
+  align-content: start;
+}
+
+.yz-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.yz-stage {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.yz-photo {
+  max-width: 78%;
+  max-height: 78%;
+  object-fit: contain;
+  transition: transform 0.5s cubic-bezier(.2, .8, .2, 1);
+}
+
+/* a soft, product-like object for items without a photo yet */
+.yz-object {
+  width: 62%;
+  aspect-ratio: 0.82;
+  border-radius: var(--shape);
+  background:
+    radial-gradient(ellipse at 32% 24%, rgb(255 255 255 / 0.55), transparent 46%),
+    radial-gradient(ellipse at 70% 90%, rgb(0 0 0 / 0.16), transparent 60%),
+    var(--tone);
+  box-shadow: 0 40px 30px -30px rgb(0 0 0 / 0.25);
+  transition: transform 0.5s cubic-bezier(.2, .8, .2, 1);
+}
+
+.yz-item:hover .yz-object,
+.yz-item:hover .yz-photo { transform: scale(1.04); }
+
+.yz-code,
+.yz-name { transition: opacity 0.2s; }
+.yz-name {
+  position: absolute;
+  bottom: 0;
+  opacity: 0;
+}
+.yz-item:hover .yz-code,
+.yz-item:focus-visible .yz-code { opacity: 0; }
+.yz-item:hover .yz-name,
+.yz-item:focus-visible .yz-name { opacity: 1; }
+.yz-item:focus-visible { outline: 1px solid var(--ink); outline-offset: 8px; }
+
+/* home: the near-empty page */
+.yz-home {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 40px 0;
+}
+
+.yz-home p {
+  max-width: 34ch;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.yz-foot {
+  display: flex;
+  gap: 18px;
+  justify-content: flex-end;
+  padding: 20px 0 max(20px, env(safe-area-inset-bottom, 0px));
+  color: var(--soft);
+}
+.yz-foot a:hover { color: var(--ink); }
+
+/* close-up view */
+.yz-view {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-columns: minmax(200px, 300px) 1fr;
+  grid-template-rows: 1fr auto;
+  padding: 24px max(24px, env(safe-area-inset-right, 0px)) 24px max(24px, env(safe-area-inset-left, 0px));
+  background: var(--bg);
+  animation: yz-fade 0.3s ease;
+}
+.yz-view[hidden] { display: none; }
+@keyframes yz-fade { from { opacity: 0; } }
+
+.yz-view-stage {
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.yz-sway {
+  display: grid;
+  place-items: center;
+  width: min(62vh, 70vw);
+  aspect-ratio: 1;
+  animation: yz-wind 4.5s ease-in-out infinite;
+  transform-origin: 50% 0;
+}
+.yz-sway .yz-object { width: 70%; }
+.yz-sway .yz-photo { max-width: 100%; max-height: 100%; }
+
+/* "like fabric in wind" */
+@keyframes yz-wind {
+  0%, 100% { transform: rotate(0deg) skewX(0deg); }
+  30% { transform: rotate(1.2deg) skewX(-1.5deg); }
+  60% { transform: rotate(-0.8deg) skewX(1deg); }
+}
+
+.yz-view-info {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: end;
+  position: relative;
+  display: grid;
+  gap: 8px;
+  max-width: 300px;
+}
+
+.yz-title { font-weight: 700; }
+.yz-text { color: var(--soft); text-transform: none; font-size: 11px; letter-spacing: 0; }
+
+.yz-buy {
+  justify-self: start;
+  margin-top: 8px;
+  padding: 10px 34px;
+  color: var(--bg);
+  background: var(--ink);
+}
+
+.yz-close {
+  position: absolute;
+  top: 18px;
+  right: max(24px, env(safe-area-inset-right, 0px));
+  z-index: 2;
+}
+
+.yz-view-nav {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  align-self: end;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.yz-close,
+.yz-view-nav button {
+  padding: 6px;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.yz-view-nav button { font-size: 14px; }
+
+@media (max-width: 760px) {
+  .yz-head { gap: 14px; }
+  .yz-nav { gap: 12px; }
+  .yz-count { display: none; }
+  .yz-grid { gap: 48px 12px; padding-top: 40px; }
+  .yz-view { grid-template-columns: 1fr; grid-template-rows: 1fr auto auto; gap: 16px; }
+  .yz-view-info { grid-row: 2; }
+  .yz-view-nav { grid-column: 1; grid-row: 3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yz-sway { animation: none; }
+  .yz-view { animation: none; }
+}
+
+.yz .theme-controls .tc-mode { color: var(--ink); }
+
+/* the theme picker: same empty white page, screenshots as products */
+.yz-themes {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow-y: auto;
+  padding: 0 max(20px, env(safe-area-inset-right, 0px)) 60px max(20px, env(safe-area-inset-left, 0px));
+  color: var(--ink);
+  background: var(--bg);
+  font: 400 10px/1.4 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  animation: yz-fade 0.3s ease;
+}
+.yz-themes .yz-head { gap: 12px; }
+.yz-themes .yz-count { margin-right: auto; text-align: left; }
+.yz-themes .yz-close { position: static; padding: 6px; font: inherit; letter-spacing: inherit; color: var(--ink); background: none; border: 0; cursor: pointer; }
+
+.yz-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 42vw), 1fr));
+  gap: 56px 24px;
+  padding-top: 56px;
+}
+
+.yz-theme {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.yz-theme-shot {
+  width: 86%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: var(--soft);
+  box-shadow: 0 30px 30px -26px rgb(0 0 0 / 0.35);
+  transition: transform 0.5s cubic-bezier(.2, .8, .2, 1);
+}
+.yz-theme-shot img { width: 100%; height: 100%; object-fit: cover; }
+.yz-theme:hover .yz-theme-shot { transform: scale(1.04); }
+.yz-theme:hover .yz-code,
+.yz-theme:focus-visible .yz-code { opacity: 0; }
+.yz-theme:hover .yz-name,
+.yz-theme:focus-visible .yz-name { opacity: 1; }
+.yz-theme:focus-visible { outline: 1px solid var(--ink); outline-offset: 8px; }
+
+@media (prefers-reduced-motion: reduce) { .yz-themes { animation: none; } }

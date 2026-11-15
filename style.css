@@ -1,26 +1,21 @@
-/* ---------- 1. Variables: change colours here, everything updates ---------- */
+/* ---------- 1. Variables: change colours here, everything updates ----------
+   light-dark(LIGHT, DARK) picks the right value for light or dark mode. */
 :root {
-  --bg: #ecebe7;       /* warm light grey, like TE hardware */
-  --panel: #f6f5f2;    /* cards */
-  --ink: #161616;      /* main text */
-  --muted: #77756f;    /* secondary text */
-  --line: #d3d1cb;     /* borders */
-  --accent: #ff4f00;   /* TE orange */
+  color-scheme: light dark;
+  --bg:     light-dark(#ecebe7, #141413);   /* warm light grey, like TE hardware */
+  --panel:  light-dark(#f6f5f2, #1d1d1b);   /* cards */
+  --ink:    light-dark(#161616, #ecebe7);   /* main text */
+  --muted:  light-dark(#77756f, #8f8d86);   /* secondary text */
+  --line:   light-dark(#d3d1cb, #33322f);   /* borders */
+  --accent: light-dark(#ff4f00, #ff6a26);   /* TE orange */
   --sidebar-w: 320px;
 }
- 
-/* automatic dark mode */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #141413;
-    --panel: #1d1d1b;
-    --ink: #ecebe7;
-    --muted: #8f8d86;
-    --line: #33322f;
-    --accent: #ff6a26;
-  }
-}
- 
+
+/* light/dark: theme-core.js sets data-scheme on <html> (the sun/moon button).
+   Without JavaScript the colours just follow the computer's setting. */
+:root[data-scheme="light"] { color-scheme: light; }
+:root[data-scheme="dark"]  { color-scheme: dark; }
+
 /* ---------- 2. Reset: removes browser default spacing and blue links ---------- */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -45,6 +40,10 @@ img {
   max-width: 100%;
   display: block;
 }
+
+/* site themes: hide this page while another theme is showing */
+html.theme-loading body { visibility: hidden; }
+html[data-theme-ready] body > :not(#theme-root):not(#theme-popover) { display: none !important; }
 
 .logo,
 .nav a,
@@ -95,7 +94,7 @@ img {
   gap: 20px;
 }
 
-main {
+body > main {
   margin-left: var(--sidebar-w);
   padding: 120px 32px 80px;
   max-width: 1600px;
@@ -251,7 +250,7 @@ main {
   .nav a { font-size: 14px; }
   .logo { font-size: 22px; }
 
-  main {
+  body > main {
     margin-left: 0;
     padding: 96px 20px 48px;
   }
@@ -282,4 +281,381 @@ main {
 img.thumb {
   width: 100%;
   object-fit: cover;
+}
+
+
+/* =========================================================
+   SITE THEMES (see themes/README.md)
+   ========================================================= */
+
+/* ---------- 5. Themes button, Original button, light/dark icon ----------
+   Plain text + icon, no outlines, so they sit quietly like the GitHub/Email links.
+   They use currentColor, so inside any theme they take that theme's text colour. */
+.theme-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.tc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: color 0.15s, opacity 0.15s;
+}
+
+.tc-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tc-themes svg circle { fill: currentColor; stroke: none; }
+
+.tc-mode svg { width: 16px; height: 16px; }
+.tc-mode[hidden] { display: none; }
+
+/* the Original button only shows while a theme is active */
+.theme-controls:not(.is-themed) .tc-original { display: none; }
+
+/* sun in dark mode (click for light), moon in light mode */
+:root[data-scheme="dark"] .tc-moon,
+:root:not([data-scheme="dark"]) .tc-sun { display: none; }
+
+/* in the original sidebar: looks exactly like the links underneath */
+.links .theme-controls { justify-content: space-between; }
+.links .tc-themes svg { display: none; }
+.links .tc-btn:hover { color: var(--accent); }
+
+.tc-btn:focus-visible {
+  outline: 2px solid var(--accent, #ff4f00);
+  outline-offset: 3px;
+}
+
+/* when a theme doesn't say where the buttons go */
+.theme-controls--floating {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  z-index: 9000;
+  padding: 8px 14px;
+  color: #161616;
+  background: rgb(255 255 255 / 0.9);
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgb(0 0 0 / 0.15);
+}
+
+
+/* ---------- 6. The Themes popup ----------
+   Styled like a small piece of hardware: a screen and eight keys.
+   It keeps its own copy of the Original colours so it looks the same
+   over every theme that uses it. */
+.theme-popover {
+  --tp-body:   light-dark(#dedcd6, #232321);
+  --tp-key:    light-dark(#f4f3ef, #34332f);
+  --tp-key-lo: light-dark(#c9c7c0, #151514);
+  --tp-ink:    light-dark(#161616, #ecebe7);
+  --tp-muted:  light-dark(#77756f, #8f8d86);
+  --tp-accent: light-dark(#ff4f00, #ff6a26);
+
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(392px, calc(100vw - 24px));
+  height: fit-content;
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  padding: 12px;
+  font: 12px/1.4 "JetBrains Mono", ui-monospace, monospace;
+  color: var(--tp-ink);
+  background: var(--tp-body);
+  border: 0;
+  border-radius: 10px;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    inset 0 -1px 0 rgb(0 0 0 / 0.08),
+    0 24px 60px -16px rgb(0 0 0 / 0.45);
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  text-shadow: none;
+}
+
+/* opened from a button: sits beside it instead of in the middle */
+.theme-popover.is-anchored { inset: auto; margin: 0; }
+.theme-popover::backdrop { background: transparent; }
+.theme-popover:not(.is-anchored)::backdrop { background: rgb(0 0 0 / 0.25); }
+
+.no-popover .theme-popover { display: none; z-index: 10000; }
+.no-popover .theme-popover.is-open { display: block; }
+
+/* the screen */
+.tp-screen {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: #0d0d0c;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 5px #0d0d0c, inset 0 2px 6px rgb(0 0 0 / 0.6);
+}
+
+.tp-screen img {
+  position: absolute;
+  inset: 5px 5px 34px;
+  width: calc(100% - 10px);
+  height: calc(100% - 39px);
+  object-fit: cover;
+  object-position: top;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.tp-screen img.is-on { opacity: 1; }
+
+/* the readout under the picture: number, name, one line, IN USE */
+.tp-readout {
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  bottom: 5px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+  color: #ecebe7;
+}
+
+.tp-readnum {
+  font: 900 18px/1 "Doto", monospace;
+  color: var(--tp-accent);
+}
+
+.tp-readtext {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.tp-readname { font-weight: 700; }
+.tp-readdesc { overflow: hidden; text-overflow: ellipsis; color: #8f8d86; font-size: 11px; }
+
+.tp-readstate {
+  margin-left: auto;
+  flex: none;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--tp-accent);
+}
+.tp-readstate[hidden] { display: none; }
+
+/* the keys: Creative on the top row, Business underneath */
+.tp-keys {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tp-key {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  height: 66px;
+  padding: 8px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: var(--tp-key);
+  border: 0;
+  border-radius: 5px;
+  box-shadow: 0 2px 0 var(--tp-key-lo), 0 3px 6px rgb(0 0 0 / 0.12);
+  cursor: pointer;
+  transition: transform 0.06s, box-shadow 0.06s, background 0.15s;
+}
+
+.tp-key:hover { background: color-mix(in srgb, var(--tp-key) 92%, var(--tp-ink)); }
+.tp-key:active { transform: translateY(2px); box-shadow: 0 0 0 var(--tp-key-lo), 0 1px 2px rgb(0 0 0 / 0.12); }
+.tp-key:focus-visible { outline: 2px solid var(--tp-accent); outline-offset: 2px; }
+
+.tp-keynum {
+  font: 900 16px/1 "Doto", monospace;
+  color: var(--tp-muted);
+}
+
+.tp-keyname {
+  overflow: hidden;
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* the little light, lit on the theme in use */
+.tp-led {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tp-key-lo);
+}
+.tp-key[aria-pressed="true"] .tp-led {
+  background: var(--tp-accent);
+  box-shadow: 0 0 6px var(--tp-accent);
+}
+.tp-key[aria-pressed="true"] .tp-keynum { color: var(--tp-accent); }
+
+.tp-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 12px 2px 0;
+  font-size: 10px;
+  color: var(--tp-muted);
+}
+
+.tp-hint kbd {
+  padding: 0 4px;
+  font: inherit;
+  color: var(--tp-ink);
+  background: var(--tp-key);
+  border-radius: 3px;
+  box-shadow: 0 1px 0 var(--tp-key-lo);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tp-screen img, .tp-key { transition: none; }
+}
+
+
+/* ---------- Numbered list rows (the theme list at the bottom of the Design page) ---------- */
+.tp-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.tp-row:hover,
+.tp-row.is-showing { background: var(--bg); }
+.tp-row:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+.tp-num {
+  font: 900 15px/1 "Doto", monospace;
+  color: var(--muted);
+}
+
+.tp-text { display: grid; min-width: 0; }
+.tp-name { font-weight: 700; }
+.tp-short {
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tp-row[aria-pressed="true"] .tp-num { color: var(--accent); }
+.tp-row[aria-pressed="true"] .tp-name::after { content: " ●"; color: var(--accent); font-size: 9px; vertical-align: 2px; }
+
+
+/* ---------- 7. Design page: the theme previews at the bottom ---------- */
+.theme-strip-body {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.6fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.strip-list {
+  display: grid;
+  gap: 2px;
+}
+
+.strip-row { padding: 9px 10px; }
+
+.strip-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.strip-bezel {
+  width: 100%;
+  padding: 10px;
+  background: #161616;
+  border-radius: 10px;
+}
+
+.strip-frame {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #222;
+}
+
+.strip-frame img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.strip-frame img.is-on { opacity: 1; }
+
+.strip-stand {
+  width: 20%;
+  height: 14px;
+  background: var(--line);
+  clip-path: polygon(14% 0, 86% 0, 100% 100%, 0 100%);
+}
+
+.strip-caption {
+  margin-top: 10px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.strip-caption span { color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .strip-frame img { transition: none; }
+}
+
+@media (max-width: 960px) {
+  .theme-strip-body { grid-template-columns: 1fr; }
 }

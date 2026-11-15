@@ -1,0 +1,1171 @@
+/* Frutiger 7: a Windows 7 style desktop in the Frutiger Aero look.
+   Every page is its own app with its own taskbar button:
+     Home     -> a 2008 web browser showing a Web 2.0 homepage
+     Projects -> a file explorer (large icons, details pane, search)
+     Tools    -> a control panel (categories + properties dialogs)
+     Design   -> a photo gallery (viewer, slide show, "Edit in Paint")
+     Paint    -> its own app: draw on a picture from the gallery, or a blank page
+     Themes   -> Personalization (the Themes button opens it too)
+   The start orb opens the user menu: the sidebar's intro + links, Themes, and
+   "Shut down", which goes back to the original site.
+   Background music is generated live (Web Audio), so there are no audio files.
+   spa: true keeps windows open and the music playing between pages.
+   App icons: Oxygen icon theme (KDE, LGPL), see themes/aero/icons/README.txt. */
+(() => {
+  let w = null;   // everything for the current mount
+
+  // ======================= MUSIC =======================
+  // Soft pads, a glassy bell arpeggio, round bass, a quiet shaker and the odd
+  // bubble. Starts on the first click (browsers need one), pauses in background tabs.
+  class AeroMusic {
+    constructor() { this.ctx = null; this.playing = false; this.step = 0; this.timer = null; }
+
+    build() {
+      const ctx = (this.ctx = new (window.AudioContext || window.webkitAudioContext)());
+      this.master = ctx.createGain();
+      this.master.gain.value = 0;
+      this.master.connect(ctx.createDynamicsCompressor()).connect(ctx.destination);
+
+      // reverb from a generated impulse (decaying noise = a big glassy room)
+      this.reverb = ctx.createConvolver();
+      const len = ctx.sampleRate * 2.8;
+      const impulse = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = impulse.getChannelData(ch);
+        for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 2.6;
+      }
+      this.reverb.buffer = impulse;
+      const wet = ctx.createGain();
+      wet.gain.value = 0.45;
+      this.reverb.connect(wet).connect(this.master);
+
+      this.delay = ctx.createDelay();
+      this.delay.delayTime.value = 0.375;
+      const feedback = ctx.createGain();
+      feedback.gain.value = 0.32;
+      this.delay.connect(feedback).connect(this.delay);
+      this.delay.connect(this.master);
+      this.delay.connect(this.reverb);
+
+      this.noise = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
+      const n = this.noise.getChannelData(0);
+      for (let i = 0; i < n.length; i++) n[i] = Math.random() * 2 - 1;
+    }
+
+    hz(note) { return 440 * 2 ** ((note - 69) / 12); }
+
+    out(node, dry = 0.6, verb = 0.5) {
+      const d = this.ctx.createGain(); d.gain.value = dry;
+      const v = this.ctx.createGain(); v.gain.value = verb;
+      node.connect(d).connect(this.master);
+      node.connect(v).connect(this.reverb);
+    }
+
+    pad(notes, time, length) {
+      const ctx = this.ctx;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 1500;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, time);
+      env.gain.linearRampToValueAtTime(0.05, time + 1.2);
+      env.gain.setValueAtTime(0.05, time + length - 0.8);
+      env.gain.linearRampToValueAtTime(0, time + length + 1.2);
+      filter.connect(env);
+      this.out(env, 0.5, 0.8);
+      notes.forEach((note) => [-6, 6].forEach((detune) => {
+        const osc = ctx.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.value = this.hz(note);
+        osc.detune.value = detune;
+        osc.connect(filter);
+        osc.start(time);
+        osc.stop(time + length + 1.4);
+      }));
+    }
+
+    bell(note, time, volume = 0.07) {
+      const ctx = this.ctx;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, time);
+      env.gain.linearRampToValueAtTime(volume, time + 0.005);
+      env.gain.exponentialRampToValueAtTime(0.0001, time + 1.1);
+      const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+      if (pan) { pan.pan.value = Math.random() * 0.8 - 0.4; env.connect(pan); }
+      const node = pan || env;
+      node.connect(this.delay);
+      this.out(node, 0.5, 0.4);
+      [[1, 1], [3.01, 0.18], [5.4, 0.05]].forEach(([ratio, gain]) => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.frequency.value = this.hz(note) * ratio;
+        g.gain.value = gain;
+        osc.connect(g).connect(env);
+        osc.start(time);
+        osc.stop(time + 1.2);
+      });
+    }
+
+    bass(note, time) {
+      const osc = this.ctx.createOscillator();
+      const env = this.ctx.createGain();
+      osc.frequency.value = this.hz(note);
+      env.gain.setValueAtTime(0, time);
+      env.gain.linearRampToValueAtTime(0.16, time + 0.02);
+      env.gain.exponentialRampToValueAtTime(0.0001, time + 1.2);
+      osc.connect(env);
+      this.out(env, 0.9, 0.1);
+      osc.start(time);
+      osc.stop(time + 1.3);
+    }
+
+    shaker(time, volume) {
+      const src = this.ctx.createBufferSource();
+      src.buffer = this.noise;
+      const hp = this.ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 7000;
+      const env = this.ctx.createGain();
+      env.gain.setValueAtTime(volume, time);
+      env.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
+      src.connect(hp).connect(env);
+      this.out(env, 0.7, 0.2);
+      src.start(time);
+      src.stop(time + 0.1);
+    }
+
+    bubble(time, volume = 0.05) {
+      const osc = this.ctx.createOscillator();
+      const env = this.ctx.createGain();
+      const start = 300 + Math.random() * 300;
+      osc.frequency.setValueAtTime(start, time);
+      osc.frequency.exponentialRampToValueAtTime(start * 3.2, time + 0.12);
+      env.gain.setValueAtTime(0, time);
+      env.gain.linearRampToValueAtTime(volume, time + 0.01);
+      env.gain.exponentialRampToValueAtTime(0.0001, time + 0.16);
+      osc.connect(env);
+      this.out(env, 0.4, 0.7);
+      osc.start(time);
+      osc.stop(time + 0.2);
+    }
+
+    // Cmaj9 -> Am9 -> Fmaj9 -> G6/9: bright and optimistic
+    static CHORDS = [
+      { bass: 36, pad: [60, 64, 67, 71], arp: [72, 76, 79, 83, 74, 79] },
+      { bass: 33, pad: [57, 60, 64, 67], arp: [69, 72, 76, 79, 71, 76] },
+      { bass: 29, pad: [53, 57, 60, 64], arp: [69, 72, 76, 77, 79, 72] },
+      { bass: 31, pad: [55, 59, 62, 64], arp: [67, 71, 74, 76, 79, 74] },
+    ];
+    static PATTERN = [0, 2, 1, 3, 2, 4, 3, 5];
+
+    schedule() {
+      const eighth = 60 / 96 / 2;
+      while (this.nextTime < this.ctx.currentTime + 0.3) {
+        const chord = AeroMusic.CHORDS[Math.floor(this.step / 8) % AeroMusic.CHORDS.length];
+        const pos = this.step % 8;
+        const time = this.nextTime;
+        if (pos === 0) { this.pad(chord.pad, time, eighth * 8); this.bass(chord.bass, time); }
+        if (pos === 5) this.bass(chord.bass + 12, time);
+        if (Math.random() > 0.18) this.bell(chord.arp[AeroMusic.PATTERN[pos]], time, pos % 2 ? 0.045 : 0.07);
+        this.shaker(time, pos % 2 ? 0.02 : 0.008);
+        if (Math.random() < 0.05) this.bubble(time + eighth / 2);
+        this.nextTime += eighth;
+        this.step += 1;
+      }
+    }
+
+    async start() {
+      if (!this.ctx) this.build();
+      await this.ctx.resume();
+      if (this.playing) return;
+      this.playing = true;
+      this.nextTime = this.ctx.currentTime + 0.1;
+      this.master.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.master.gain.linearRampToValueAtTime(0.5, this.ctx.currentTime + 2);
+      this.timer = setInterval(() => this.schedule(), 100);
+    }
+
+    stop() {
+      if (!this.ctx || !this.playing) return;
+      this.playing = false;
+      clearInterval(this.timer);
+      this.master.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.4);
+    }
+
+    blip(high = false) { if (this.playing) this.bell(high ? 96 : 91, this.ctx.currentTime, 0.025); }
+
+    destroy() { this.stop(); this.ctx?.close(); this.ctx = null; }
+  }
+
+  // ======================= BUBBLES =======================
+  function startBubbles(canvas, api) {
+    const ctx = canvas.getContext('2d');
+    const bubbles = [];
+    let frame = 0;
+    let width = 0;
+    let height = 0;
+    const resize = () => {
+      const dpr = Math.min(2, devicePixelRatio || 1);
+      width = canvas.clientWidth;
+      height = canvas.clientHeight;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    const spawn = (anywhere) => ({
+      x: Math.random() * width,
+      y: anywhere ? Math.random() * height : height + 40,
+      r: 6 + Math.random() ** 2 * 38,
+      speed: 0.25 + Math.random() * 0.6,
+      wobble: Math.random() * Math.PI * 2,
+    });
+    resize();
+    for (let i = 0; i < (api.preview ? 14 : 26); i++) bubbles.push(spawn(true));
+    const draw = () => {
+      ctx.clearRect(0, 0, width, height);
+      for (const b of bubbles) {
+        const g = ctx.createRadialGradient(b.x - b.r * 0.35, b.y - b.r * 0.4, b.r * 0.1, b.x, b.y, b.r);
+        g.addColorStop(0, 'rgba(255,255,255,0.75)');
+        g.addColorStop(0.35, 'rgba(255,255,255,0.12)');
+        g.addColorStop(0.85, 'rgba(160,230,255,0.12)');
+        g.addColorStop(1, 'rgba(255,255,255,0.55)');
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.fillStyle = g;
+        ctx.fill();
+      }
+    };
+    const tick = () => {
+      if (!document.hidden) {
+        for (const b of bubbles) {
+          b.y -= b.speed;
+          b.wobble += 0.02;
+          b.x += Math.sin(b.wobble) * 0.3;
+          if (b.y < -60) Object.assign(b, spawn(false));
+        }
+        draw();
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    addEventListener('resize', resize);
+    if (api.reducedMotion() || api.preview) draw();
+    else frame = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); };
+  }
+
+  // ======================= ICONS =======================
+  // App icons are from the Oxygen icon theme (KDE, LGPL): see themes/aero/icons/README.txt.
+  // Only the tiny arrows and the network bars are drawn here.
+  const DIR = new URL('.', document.currentScript.src).href;
+  const IMG = (name) => `<img class="w7-ico" src="${DIR}icons/${name}.webp" alt="" draggable="false">`;
+  const ICON = {
+    home: IMG('home'),
+    folder: IMG('folder'),
+    tools: IMG('tools'),
+    gallery: IMG('gallery'),
+    paint: IMG('paint'),
+    personalize: IMG('personalize'),
+    browser: IMG('internet'),
+    original: IMG('shutdown'),
+    dev: IMG('dev'),
+    terminal: IMG('terminal'),
+    calculator: IMG('calculator'),
+    monitor: IMG('monitor'),
+    configure: IMG('configure'),
+    speakerOn: IMG('speaker-on'),
+    speakerOff: IMG('speaker-off'),
+    network: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="15" width="3" height="5" fill="currentColor"/><rect x="8" y="11" width="3" height="9" fill="currentColor"/><rect x="13" y="7" width="3" height="13" fill="currentColor"/><rect x="18" y="3" width="3" height="17" fill="currentColor"/></svg>',
+    back: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 6l-6 6 6 6" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6" stroke="currentColor" stroke-width="2" fill="none"/><path d="m15 15 6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+  };
+  const ITEM_ICONS = ['dev', 'terminal', 'calculator', 'monitor', 'configure'];
+
+  // ======================= APPS =======================
+  // Which app shows which page, plus its taskbar name and icon.
+  const APPS = {
+    browser:     { name: 'Internet',       icon: 'home' },
+    explorer:    { name: 'Projects',       icon: 'folder' },
+    control:     { name: 'Control Panel',  icon: 'tools' },
+    gallery:     { name: 'Photo Gallery',  icon: 'gallery' },
+    paint:       { name: 'Paint',          icon: 'paint' },
+    personalize: { name: 'Personalization', icon: 'personalize' },
+  };
+  const appForPage = (page) => ({ home: 'browser', projects: 'explorer', code: 'explorer', tools: 'control', hardware: 'control', design: 'gallery', themes: 'personalize', paint: 'paint' }[page] || 'explorer');
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+  const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+  // pinned apps on the taskbar / desktop / start menu: home + every nav page
+  function pinned(site) {
+    return [
+      { key: 'home', label: 'Home', href: site.homeHref, app: 'browser' },
+      ...site.nav.map((n) => ({ key: slug(n.label), label: cap(n.label), href: n.href, app: appForPage(slug(n.label)) })),
+    ];
+  }
+
+  function shell(site, api) {
+    const e = api.esc;
+    const initials = site.name.split(/\s+/).map((x) => x[0]).join('').slice(0, 2);
+    const apps = pinned(site);
+    return `
+      <div class="w7">
+        <div class="w7-wall" aria-hidden="true"><i class="w7-sun"></i><i class="w7-ribbon r1"></i><i class="w7-ribbon r2"></i><i class="w7-hill"></i></div>
+        <canvas class="w7-bubbles" aria-hidden="true"></canvas>
+
+        <nav class="w7-desktop" aria-label="Desktop">
+          ${apps.map((a) => `<button type="button" class="w7-dicon" data-launch="${a.key}">${ICON[APPS[a.app].icon]}<span>${e(a.label)}</span></button>`).join('')}
+          <button type="button" class="w7-dicon" data-launch="paint">${ICON.paint}<span>Paint</span></button>
+          <button type="button" class="w7-dicon" data-launch="themes">${ICON.personalize}<span>Themes</span></button>
+          <button type="button" class="w7-dicon" data-theme-choice="original" title="Back to the original site">${ICON.original}<span>Original site</span></button>
+        </nav>
+
+        <div class="w7-windows"></div>
+
+        <div class="w7-start" hidden>
+          <div class="sm-left">
+            <div class="sm-programs">
+              ${apps.map((a) => `<button type="button" class="sm-prog" data-launch="${a.key}">${ICON[APPS[a.app].icon]}<span>${e(a.label)}<small>${e(a.app === 'browser' ? 'Internet' : APPS[a.app].name === a.label ? '' : APPS[a.app].name)}</small></span></button>`).join('')}
+              <button type="button" class="sm-prog" data-launch="paint">${ICON.paint}<span>Paint<small>Draw something</small></span></button>
+              <button type="button" class="sm-prog" data-launch="themes">${ICON.personalize}<span>Personalization<small>Site themes</small></span></button>
+            </div>
+            <div class="sm-search">${ICON.search}<input type="search" placeholder="Search programs and files" aria-label="Search programs"></div>
+          </div>
+          <div class="sm-right">
+            <div class="sm-pic"><span>${e(initials)}</span></div>
+            <p class="sm-name">${e(site.name)}</p>
+            ${site.intro ? `<p class="sm-bio">${e(site.intro)}</p>` : ''}
+            ${site.links.map((l) => `<a class="sm-link" href="${e(l.href)}" target="_blank" rel="noopener">${e(cap(l.label))}</a>`).join('')}
+            <button type="button" class="sm-link" data-act="picker">Themes…</button>
+            <div class="sm-shutdown">
+              <button type="button" class="sm-off" data-theme-choice="original">Shut down</button>
+              <small>Back to the original site</small>
+            </div>
+          </div>
+        </div>
+
+        <footer class="w7-taskbar">
+          <button type="button" class="w7-orb" aria-label="Start" aria-expanded="false"><i>
+            <svg viewBox="0 0 40 40" aria-hidden="true"><g transform="translate(20 20)">
+              <path d="M0 0C-1-6 1-11 6-12 9-9 8-3 0 0Z" fill="#7ed957"/>
+              <path d="M0 0C6-1 11 1 12 6 9 9 3 8 0 0Z" fill="#2aa5ec"/>
+              <path d="M0 0C1 6-1 11-6 12-9 9-8 3 0 0Z" fill="#ffd23f"/>
+              <path d="M0 0C-6 1-11-1-12-6-9-9-3-8 0 0Z" fill="#ff7a45"/>
+              <circle r="2.2" fill="#fff"/></g></svg></i></button>
+          <div class="w7-apps"></div>
+          <div class="w7-tray">
+            <span class="w7-tray-controls" data-theme-controls></span>
+            <span class="w7-tray-ico" title="Internet access">${ICON.network}</span>
+            <button type="button" class="w7-tray-ico w7-music"></button>
+            <div class="w7-clock" title=""><time></time><small></small></div>
+            <button type="button" class="w7-peek" aria-label="Show desktop" title="Show desktop"></button>
+          </div>
+        </footer>
+        <div class="w7-balloon" hidden><b>♪ Music</b>Click anywhere to start it. Mute it with the speaker.</div>
+      </div>`;
+  }
+
+  // ---------- app contents ----------
+  function addressBar(crumbs, searchLabel, e) {
+    return `
+      <div class="w7-navrow">
+        <button type="button" class="w7-navorb back" data-act="back" aria-label="Back">${ICON.back}</button>
+        <button type="button" class="w7-navorb fwd" data-act="fwd" aria-label="Forward">${ICON.back}</button>
+        <div class="w7-crumbs">${crumbs.map((c) => `<span class="sep">▸</span>${c.href ? `<a href="${e(c.href)}">${e(c.label)}</a>` : `<span>${e(c.label)}</span>`}`).join('')}</div>
+        <label class="w7-search"><input type="search" placeholder="${e(searchLabel)}" aria-label="${e(searchLabel)}">${ICON.search}</label>
+      </div>`;
+  }
+
+  const RENDER = {
+    // ---------- Home: a browser showing a Web 2.0 homepage ----------
+    browser(site, api) {
+      const e = api.esc;
+      const url = location.href.split('#')[0];
+      const first = site.name.split(' ')[0];
+      const rest = site.name.split(' ').slice(1).join(' ');
+      return {
+        title: `${site.name} - Internet`,
+        chrome: `
+          <div class="ie-nav">
+            <button type="button" class="ie-orb" data-act="back" aria-label="Back">${ICON.back}</button>
+            <button type="button" class="ie-orb fwd" data-act="fwd" aria-label="Forward">${ICON.back}</button>
+            <div class="ie-address"><span class="ie-favicon">${ICON.browser}</span><span class="ie-url">${e(url)}</span><button type="button" class="ie-refresh" data-act="refresh" aria-label="Refresh">⟳</button></div>
+            <label class="w7-search ie-searchbox"><input type="search" placeholder="Search the web" aria-label="Search">${ICON.search}</label>
+          </div>
+          <div class="ie-band">
+            <div class="ie-tabs">
+              <span class="ie-favbtn">★ Favorites</span>
+              ${site.links.map((l) => `<a class="ie-favlink" href="${e(l.href)}" target="_blank" rel="noopener">${ICON.browser}${e(cap(l.label))}</a>`).join('')}
+            </div>
+            <div class="ie-tabrow">
+              <span class="ie-tab is-on">${ICON.browser}<span>${e(site.name)}</span></span><span class="ie-newtab" aria-hidden="true"></span>
+              <span class="ie-cmds" aria-hidden="true"><span>Page ▾</span><span>Safety ▾</span><span>Tools ▾</span></span>
+            </div>
+          </div>`,
+        client: `
+          <div class="web">
+            <header class="web-top">
+              <a class="web-logo" href="${e(site.homeHref)}"><b>${e(first.toLowerCase())}</b><span>${e(rest.toLowerCase())}</span><em>beta</em></a>
+            </header>
+            <section class="web-hero">
+              <div>
+                <h1>Welcome to my homepage!</h1>
+                <p>${e(site.title || site.description)}</p>
+                <a class="web-bigbtn" href="${e(site.nav[0]?.href || '#')}">Explore my ${e((site.nav[0]?.label || 'work').toLowerCase())} »</a>
+              </div>
+              <a class="web-burst" href="#themes"><span>NEW!</span>${api.themes.length} themes</a>
+            </section>
+            <div class="web-cols">
+              <main>
+                <div class="web-box"><h2>About me</h2><p>${e(site.intro)}</p></div>
+              </main>
+              <aside>
+                <div class="web-box"><h2>Links</h2>
+                  ${site.links.map((l) => `<a class="web-pill" href="${e(l.href)}" target="_blank" rel="noopener">${e(cap(l.label))}</a>`).join('')}
+                </div>
+                <div class="web-badges" aria-hidden="true"><span>HTML</span><span>CSS</span><span>Web 2.0</span></div>
+              </aside>
+            </div>
+            <footer class="web-foot">© ${new Date().getFullYear()} ${e(site.name)} · Best viewed at 1024×768</footer>
+          </div>`,
+        status: `<span>Done</span><span class="ie-zone">${ICON.browser} Internet | Protected Mode: On</span><span>100%</span>`,
+      };
+    },
+
+    // ---------- Projects: file explorer ----------
+    explorer(site, api) {
+      const e = api.esc;
+      const name = cap(site.nav.find((n) => n.active)?.label || site.title || 'Folder');
+      return {
+        title: name,
+        chrome: `
+          ${addressBar([{ label: site.name.split(' ')[0], href: site.homeHref }, { label: name }], `Search ${name}`, e)}
+          <div class="w7-cmdbar">
+            <span class="cmd">Organize ▾</span>
+            <a class="cmd cmd-open" data-act="open" aria-disabled="true">Open</a>
+            <span class="cmd">Share with ▾</span>
+            <span class="cmd-spacer"></span>
+            <button type="button" class="cmd" data-act="view" title="Change your view">Views ▾</button>
+          </div>`,
+        client: `
+          <div class="ex">
+            <nav class="ex-pane" aria-label="Folders and tags">
+              <button type="button" class="ex-folder" data-view="fav">${ICON.folder}Favourites <span>${site.items.filter((i) => i.favourite).length}</span></button>
+              <button type="button" class="ex-folder is-on" data-view="all">${ICON.folder}All ${e(name.toLowerCase())} <span>${site.items.length}</span></button>
+              ${site.tags.length ? `<p>Tags</p>${site.tags.map((t) => `<button type="button" class="ex-folder sub" data-view="tag:${e(t.toLowerCase())}">🏷 ${e(t)}</button>`).join('')}` : ''}
+            </nav>
+            <div class="ex-files">
+              <div class="ex-grid" role="listbox" aria-label="${e(name)}">
+                ${site.items.map((item, i) => `
+                  <button type="button" class="ex-file" role="option" data-i="${i}" data-fav="${item.favourite ? 1 : 0}" data-tags="${e(item.tags.join('|').toLowerCase())}" data-search="${e((item.title + ' ' + item.text + ' ' + item.tags.join(' ')).toLowerCase())}">
+                    <span class="ex-thumb">${item.image ? `<img src="${e(item.image)}" alt="">` : ICON.folder}</span>
+                    <span class="ex-name">${e(item.title)}</span>
+                    <span class="ex-col">${e(item.tags.join(', '))}</span>
+                    <span class="ex-col">${item.theme ? 'Theme' : 'Project'}</span>
+                  </button>`).join('')}
+              </div>
+              <p class="ex-empty" ${site.items.length ? 'hidden' : ''}>This folder is empty.</p>
+              <p class="ex-empty ex-nofav" hidden>No favourites yet.</p>
+            </div>
+          </div>
+          <div class="ex-details"></div>`,
+        status: '',
+      };
+    },
+
+    // ---------- Tools: control panel ----------
+    control(site, api) {
+      const e = api.esc;
+      return {
+        title: 'Control Panel',
+        chrome: addressBar([{ label: 'Control Panel' }, { label: cap(site.title || 'Tools') }], 'Search Control Panel', e),
+        client: `
+          <div class="cp">
+            <header class="cp-head">
+              <div><h1>${e(site.title || 'Control Panel')}</h1><p>${e(site.description)}</p></div>
+              <span class="cp-view">View by: <b>Category ▾</b></span>
+            </header>
+            <div class="cp-grid">
+              ${site.items.map((item, i) => `
+                <div class="cp-cat" data-search="${e((item.title + ' ' + item.text + ' ' + item.tags.join(' ')).toLowerCase())}">
+                  <span class="cp-ico">${item.image ? `<img src="${e(item.image)}" alt="">` : ICON[ITEM_ICONS[i % ITEM_ICONS.length]]}</span>
+                  <div>
+                    <button type="button" class="cp-title" data-props="${i}">${e(item.title)}</button>
+                    <p>${e(item.text)}</p>
+                    <p class="cp-subs">${item.tags.map((t) => `<span>${e(t)}</span>`).join('')}${item.href ? `<a href="${e(item.href)}">Open</a>` : ''}</p>
+                  </div>
+                </div>`).join('')}
+            </div>
+          </div>`,
+        status: '',
+      };
+    },
+
+    // ---------- Design: photo gallery ----------
+    gallery(site, api) {
+      const e = api.esc;
+      const name = cap(site.nav.find((n) => n.active)?.label || site.title || 'Pictures');
+      return {
+        title: `${name} - Photo Gallery`,
+        chrome: `
+          ${addressBar([{ label: 'Pictures' }, { label: name }], `Search ${name}`, e)}
+          <div class="w7-cmdbar">
+            <span class="cmd">File ▾</span>
+            <span class="cmd">Fix</span>
+            <span class="cmd">Info</span>
+            <a class="cmd cmd-open" data-act="open" aria-disabled="true">Open</a>
+            <button type="button" class="cmd" data-act="edit-paint">Edit in Paint</button>
+            <button type="button" class="cmd" data-act="slideshow">▶ Slide show</button>
+          </div>`,
+        client: `
+          <div class="pg">
+            <nav class="pg-tree" aria-label="Folders and tags">
+              <p>All photos and videos</p>
+              <span class="pg-node">${ICON.gallery}Pictures</span>
+              <button type="button" class="pg-node sub is-on" data-tag="">${ICON.folder}${e(name)}</button>
+              ${site.tags.length ? `<p>Tags</p>${site.tags.map((t) => `<button type="button" class="pg-node sub" data-tag="${e(t.toLowerCase())}">🏷 ${e(t)}</button>`).join('')}` : ''}
+            </nav>
+            <div class="pg-main">
+              <div class="pg-head"><b>${e(name)}</b><span class="pg-count">${site.items.length} items</span></div>
+              ${site.description ? `<p class="pg-desc">${e(site.description)}</p>` : ''}
+              <div class="pg-grid">
+                ${site.items.map((item, i) => `
+                  <button type="button" class="pg-thumb" data-i="${i}" data-tags="${e(item.tags.join('|').toLowerCase())}" data-search="${e((item.title + ' ' + item.text + ' ' + item.tags.join(' ')).toLowerCase())}">
+                    <span class="pg-img"><img src="${e(item.image || site.sampleImage)}" alt=""></span>
+                    <span class="pg-cap">${e(item.title)}</span>
+                  </button>`).join('')}
+              </div>
+            </div>
+            <aside class="pg-info"></aside>
+          </div>
+          <div class="pg-viewer" hidden>
+            <div class="pv-stage"><img alt=""></div>
+            <div class="pv-bar">
+              <span class="pv-title"></span>
+              <span class="pv-controls">
+                <button type="button" class="pv-btn" data-act="pv-prev" aria-label="Previous">◀</button>
+                <button type="button" class="pv-btn big" data-act="pv-play" aria-label="Play slide show">▶</button>
+                <button type="button" class="pv-btn" data-act="pv-next" aria-label="Next">▶</button>
+              </span>
+              <span class="pv-right">
+                <button type="button" class="w7-btn" data-act="edit-paint">Edit in Paint</button>
+                <button type="button" class="w7-btn" data-act="pv-close">Close</button>
+              </span>
+            </div>
+          </div>`,
+        status: '<span class="pg-status">Select a picture to see its details</span><span class="pg-zoom" aria-hidden="true">− ━━━●━━ +</span>',
+      };
+    },
+
+    // ---------- Paint: its own app, opened from the gallery or the desktop ----------
+    paint(item, api) {
+      const e = api.esc;
+      const colors = ['#000000', '#7f7f7f', '#880015', '#ed1c24', '#ff7f27', '#fff200', '#22b14c', '#00a2e8', '#3f48cc', '#a349a4',
+        '#ffffff', '#c3c3c3', '#b97a57', '#ffaec9', '#ffc90e', '#efe4b0', '#b5e61d', '#99d9ea', '#7092be', '#c8bfe7'];
+      return {
+        title: `${item ? item.title : 'Untitled'}.png - Paint`,
+        chrome: `
+          <div class="pt-tabs"><span class="pt-menu">▤ ▾</span><span class="is-on">Home</span><span>View</span></div>
+          <div class="pt-ribbon">
+            <div class="pt-group"><div class="pt-tools">
+              <button type="button" class="pt-tool is-on" data-tool="pencil" title="Pencil">✎</button>
+              <button type="button" class="pt-tool" data-tool="brush" title="Brush">🖌</button>
+              <button type="button" class="pt-tool" data-tool="eraser" title="Eraser">▱</button>
+            </div><span>Tools</span></div>
+            <div class="pt-group"><div class="pt-sizes">
+              ${[2, 4, 8, 14].map((s, i) => `<button type="button" class="pt-size ${i === 1 ? 'is-on' : ''}" data-size="${s}" title="${s}px"><i style="height:${Math.max(1, s / 2)}px"></i></button>`).join('')}
+            </div><span>Size</span></div>
+            <div class="pt-group pt-colors-group"><div class="pt-colors">
+              <span class="pt-current" title="Colour 1"><i style="background:#000"></i></span>
+              <div class="pt-palette">${colors.map((c) => `<button type="button" style="background:${c}" data-color="${c}" aria-label="Colour ${c}"></button>`).join('')}</div>
+            </div><span>Colors</span></div>
+            <div class="pt-group"><div class="pt-tools"><button type="button" class="pt-tool wide" data-act="clear">${item ? 'Start over' : 'Clear'}</button></div><span>Image</span></div>
+          </div>`,
+        client: `
+          <div class="pt-work">
+            <div class="pt-doc">
+              <canvas class="pt-canvas"></canvas>
+              <i class="pt-handle r"></i><i class="pt-handle b"></i><i class="pt-handle rb"></i>
+            </div>
+          </div>`,
+        status: `<span class="pt-pos">⌖</span><span>▭ 800 × 500px</span><span>100%</span>`,
+      };
+    },
+
+    // ---------- Themes page: Personalization ----------
+    personalize(_, api) {
+      const e = api.esc;
+      const items = api.themes.map((t) => ({ title: t.name, text: t.desc, href: `#use-theme-${t.id}`, image: api.thumb(t.id), theme: t.id }));
+      return {
+        title: 'Personalization',
+        chrome: addressBar([{ label: 'Control Panel' }, { label: 'Appearance and Personalization' }, { label: 'Personalization' }], 'Search Control Panel', e),
+        client: `
+          <div class="pz">
+            <nav class="pz-pane">
+              <span>Control Panel Home</span>
+              <span>Change desktop icons</span>
+              <span>Change mouse pointers</span>
+              <p>See also</p>
+              <span>Display</span><span>Taskbar and Start Menu</span>
+            </nav>
+            <div class="pz-main">
+              <h1>Change the visuals and sounds on your computer</h1>
+              <p>Click a theme to change the whole site at once.</p>
+              <div class="pz-box">
+                <p class="pz-sec">Site themes (${items.length})</p>
+                <div class="pz-grid">
+                  ${items.map((item) => `
+                    <a class="pz-theme ${item.theme === 'aero' ? 'is-on' : ''}" href="${e(item.href)}" title="${e(item.text)}">
+                      <span class="pz-shot">${item.image ? `<img src="${e(item.image)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span>
+                      <span>${e(item.title)}</span>
+                    </a>`).join('')}
+                </div>
+              </div>
+              <div class="pz-strip">
+                <span class="pz-opt"><i class="pz-wall"></i><b>Desktop Background</b>Bubbles</span>
+                <span class="pz-opt"><i class="pz-color"></i><b>Window Color</b>Sky</span>
+                <button type="button" class="pz-opt" data-act="music">${ICON.speakerOn}<b>Sounds</b><span class="pz-sound">Frutiger loop</span></button>
+                <span class="pz-opt"><i class="pz-saver"></i><b>Screen Saver</b>None</span>
+              </div>
+            </div>
+          </div>`,
+        status: '',
+      };
+    },
+  };
+
+  // ======================= WINDOWS =======================
+  function openWindow(key, site) {
+    const appKey = appForPage(key);
+    showWindow(key, appKey, RENDER[appKey](site, w.api), site);
+  }
+
+  // Paint isn't a page: it opens with a picture from the gallery (or blank)
+  function openPaint(item) {
+    const win = w.wins.paint;
+    if (win && !item) { win.minimized = false; win.el.classList.remove('is-min'); focusWindow('paint'); return; }
+    showWindow('paint', 'paint', RENDER.paint(item, w.api), w.site, item);
+  }
+
+  function showWindow(key, appKey, view, site, extra) {
+    const e = w.api.esc;
+    let win = w.wins[key];
+
+    if (!win) {
+      const el = document.createElement('section');
+      el.className = `w7-win app-${appKey}`;
+      el.dataset.key = key;
+      el.setAttribute('role', 'dialog');
+      const n = Object.keys(w.wins).length;
+      const width = Math.min(1040, innerWidth - 120);
+      const height = Math.min(660, innerHeight - 110);
+      el.style.width = `${width}px`;
+      el.style.height = `${height}px`;
+      el.style.left = `${Math.max(90, (innerWidth - width) / 2 + n * 26 - 30)}px`;
+      el.style.top = `${Math.max(12, (innerHeight - 40 - height) / 2 + n * 22 - 20)}px`;
+      w.root.querySelector('.w7-windows').append(el);
+      win = w.wins[key] = { el, key, site, minimized: false };
+    }
+
+    win.site = site;
+    win.el.setAttribute('aria-label', view.title);
+    win.el.innerHTML = `
+      <header class="w7-titlebar">
+        <span class="w7-title">${ICON[APPS[appKey].icon]}<span>${e(view.title)}</span></span>
+        <span class="w7-caps">
+          <button type="button" class="cap cap-min" data-act="min" aria-label="Minimize"><i></i></button>
+          <button type="button" class="cap cap-max" data-act="max" aria-label="Maximize"><i></i></button>
+          <button type="button" class="cap cap-close" data-act="close" aria-label="Close"><i></i></button>
+        </span>
+      </header>
+      <div class="w7-chrome">${view.chrome}</div>
+      <div class="w7-client">${view.client}</div>
+      ${view.status ? `<footer class="w7-status">${view.status}</footer>` : ''}`;
+
+    if (appKey === 'explorer') wireExplorer(win);
+    if (appKey === 'gallery') wireGallery(win);
+    if (appKey === 'paint') wirePaint(win, extra);
+    wireSearch(win);
+    win.minimized = false;
+    win.el.classList.remove('is-min');
+    focusWindow(key);
+    renderTaskbar();
+  }
+
+  function focusWindow(key) {
+    const win = w.wins[key];
+    if (!win) return;
+    w.z += 1;
+    win.el.style.zIndex = w.z;
+    Object.values(w.wins).forEach((x) => x.el.classList.toggle('is-active', x === win));
+    w.active = key;
+    renderTaskbar();
+  }
+
+  function minimize(key) {
+    const win = w.wins[key];
+    win.minimized = true;
+    win.el.classList.add('is-min');
+    win.el.classList.remove('is-active');
+    w.active = Object.values(w.wins).filter((x) => !x.minimized).sort((a, b) => b.el.style.zIndex - a.el.style.zIndex)[0]?.key;
+    if (w.active) focusWindow(w.active); else renderTaskbar();
+  }
+
+  function closeWindow(key) {
+    w.wins[key]?.cleanup?.();
+    w.wins[key]?.el.remove();
+    delete w.wins[key];
+    if (w.active === key) w.active = null;
+    renderTaskbar();
+  }
+
+  // Taskbar: pinned apps (always there) + any other open window
+  function renderTaskbar() {
+    const e = w.api.esc;
+    const apps = pinned(w.site);
+    const extra = Object.keys(w.wins).filter((k) => !apps.some((a) => a.key === k)).map((k) => ({ key: k, app: appForPage(k), label: APPS[appForPage(k)].name }));
+    w.root.querySelector('.w7-apps').innerHTML = [...apps, ...extra].map((a) => {
+      const win = w.wins[a.key];
+      const state = win ? (w.active === a.key && !win.minimized ? 'is-open is-active' : 'is-open') : '';
+      const name = a.app === 'browser' ? 'Home' : APPS[a.app].name === 'Projects' ? a.label : APPS[a.app].name;
+      return `<button type="button" class="w7-app ${state}" data-launch="${a.key}" title="${e(name)}" aria-label="${e(name)}">${ICON[APPS[a.app].icon]}</button>`;
+    }).join('');
+  }
+
+  // Taskbar / desktop / start menu click on an app
+  function launch(key) {
+    if (key === 'themes') {
+      closeStart();
+      const win = w.wins.themes;
+      if (win && !win.minimized && w.active === 'themes') minimize('themes');
+      else showWindow('themes', 'personalize', RENDER.personalize(null, w.api), w.site);
+      return;
+    }
+    if (key === 'paint') {
+      closeStart();
+      const win = w.wins.paint;
+      if (win && !win.minimized && w.active === 'paint') minimize('paint');
+      else openPaint(null);
+      return;
+    }
+    const target = pinned(w.site).find((a) => a.key === key);
+    if (!target) return;
+    const win = w.wins[key];
+    closeStart();
+    if (win) {
+      if (!win.minimized && w.active === key) { minimize(key); return; }
+      win.minimized = false;
+      win.el.classList.remove('is-min');
+      focusWindow(key);
+      if (key !== w.site.page) w.api.navigate(target.href);   // keeps the address bar honest
+      return;
+    }
+    if (key === w.site.page) openWindow(key, w.site);
+    else w.api.navigate(target.href);
+  }
+
+  // ---------- explorer ----------
+  function wireExplorer(win) {
+    const el = win.el;
+    const details = el.querySelector('.ex-details');
+    const openBtn = el.querySelector('.cmd-open');
+    const e = w.api.esc;
+    const showDetails = (i) => {
+      const item = win.site.items[i];
+      el.querySelectorAll('.ex-file').forEach((f) => f.classList.toggle('is-sel', Number(f.dataset.i) === i));
+      if (!item) {
+        details.innerHTML = `<span class="exd-ico">${ICON.folder}</span><div><b>${win.site.items.length} items</b></div>`;
+        openBtn.removeAttribute('href');
+        openBtn.setAttribute('aria-disabled', 'true');
+        return;
+      }
+      details.innerHTML = `
+        <span class="exd-ico">${item.image ? `<img src="${e(item.image)}" alt="">` : ICON.folder}</span>
+        <div class="exd-main"><b>${e(item.title)}</b><span>${item.theme ? 'Theme' : 'Project'}</span></div>
+        <dl><dt>Tags:</dt><dd>${e(item.tags.join('; ') || 'Add a tag')}</dd><dt>Description:</dt><dd>${e(item.text)}</dd></dl>`;
+      if (item.href) { openBtn.setAttribute('href', item.href); openBtn.removeAttribute('aria-disabled'); }
+      else { openBtn.removeAttribute('href'); openBtn.setAttribute('aria-disabled', 'true'); }
+    };
+    showDetails(-1);
+    el.querySelector('.ex-grid').addEventListener('click', (ev) => {
+      const f = ev.target.closest('.ex-file');
+      if (f) { showDetails(Number(f.dataset.i)); w.music.blip(); }
+    });
+    // Favourites / All / a tag
+    el.querySelector('.ex-pane').addEventListener('click', (ev) => {
+      const folder = ev.target.closest('[data-view]');
+      if (!folder) return;
+      const view = folder.dataset.view;
+      el.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('is-on', b === folder));
+      let shown = 0;
+      el.querySelectorAll('.ex-file').forEach((file) => {
+        const hit = view === 'all' || (view === 'fav' ? file.dataset.fav === '1' : file.dataset.tags.split('|').includes(view.slice(4)));
+        file.hidden = !hit;
+        shown += hit;
+      });
+      el.querySelector('.ex-nofav').hidden = !(view === 'fav' && !shown);
+      showDetails(-1);
+    });
+    el.querySelector('.ex-grid').addEventListener('dblclick', (ev) => {
+      const f = ev.target.closest('.ex-file');
+      const href = f && win.site.items[f.dataset.i].href;
+      if (href) openBtn.click();
+    });
+  }
+
+  // ---------- photo gallery ----------
+  function wireGallery(win) {
+    const el = win.el;
+    const e = w.api.esc;
+    const info = el.querySelector('.pg-info');
+    const viewer = el.querySelector('.pg-viewer');
+    const openBtn = el.querySelector('.cmd-open');
+    let selected = -1;
+    let slideshow = null;
+
+    const select = (i) => {
+      selected = i;
+      const item = win.site.items[i];
+      el.querySelectorAll('.pg-thumb').forEach((t) => t.classList.toggle('is-sel', Number(t.dataset.i) === i));
+      if (!item) {
+        info.innerHTML = `<div class="pgi-empty">${ICON.gallery}<p>${win.site.items.length} items</p><small>Select a picture to see its details.</small></div>`;
+        el.querySelector('.pg-status').textContent = 'Select a picture to see its details';
+        openBtn.removeAttribute('href');
+        openBtn.setAttribute('aria-disabled', 'true');
+        return;
+      }
+      info.innerHTML = `
+        <img class="pgi-img" src="${e(item.image || win.site.sampleImage)}" alt="">
+        <p class="pgi-title">${e(item.title)}</p>
+        <p class="pgi-text">${e(item.text)}</p>
+        <dl><dt>Tags</dt><dd>${e(item.tags.join(', ') || 'Add tags')}</dd><dt>Type</dt><dd>${item.theme ? 'Theme' : 'Picture'}</dd></dl>
+        <div class="pgi-btns">
+          ${item.href ? `<a class="w7-btn is-default" href="${e(item.href)}">Open</a>` : ''}
+          <button type="button" class="w7-btn ${item.href ? '' : 'is-default'}" data-act="edit-paint">Edit in Paint</button>
+        </div>`;
+      el.querySelector('.pg-status').textContent = `${i + 1} of ${win.site.items.length}: ${item.title}`;
+      if (item.href) { openBtn.setAttribute('href', item.href); openBtn.removeAttribute('aria-disabled'); }
+      else { openBtn.removeAttribute('href'); openBtn.setAttribute('aria-disabled', 'true'); }
+    };
+
+    const show = (i) => {
+      const n = win.site.items.length;
+      if (!n) return;
+      select(((i % n) + n) % n);
+      const item = win.site.items[selected];
+      viewer.querySelector('.pv-stage img').src = item.image || win.site.sampleImage;
+      viewer.querySelector('.pv-title').textContent = item.title;
+      viewer.hidden = false;
+    };
+    const stopShow = () => { clearInterval(slideshow); slideshow = null; viewer.querySelector('[data-act="pv-play"]').textContent = '▶'; };
+    const startShow = () => {
+      show(selected < 0 ? 0 : selected);
+      viewer.querySelector('[data-act="pv-play"]').textContent = '❚❚';
+      slideshow = setInterval(() => show(selected + 1), 3000);
+    };
+
+    select(-1);
+    el.addEventListener('click', (ev) => {
+      const thumb = ev.target.closest('.pg-thumb');
+      if (thumb) { select(Number(thumb.dataset.i)); w.music.blip(); return; }
+      const tag = ev.target.closest('[data-tag]');
+      if (tag) {
+        el.querySelectorAll('[data-tag]').forEach((t) => t.classList.toggle('is-on', t === tag));
+        el.querySelectorAll('.pg-thumb').forEach((t) => { t.hidden = tag.dataset.tag && !t.dataset.tags.split('|').includes(tag.dataset.tag); });
+        return;
+      }
+      const act = ev.target.closest('[data-act]')?.dataset.act;
+      if (act === 'view') show(selected);
+      if (act === 'slideshow' || act === 'pv-play') { slideshow ? stopShow() : startShow(); }
+      if (act === 'pv-prev') { stopShow(); show(selected - 1); }
+      if (act === 'pv-next') { stopShow(); show(selected + 1); }
+      if (act === 'pv-close') { stopShow(); viewer.hidden = true; }
+      if (act === 'edit-paint') { stopShow(); viewer.hidden = true; openPaint(win.site.items[selected < 0 ? 0 : selected] || null); }
+    });
+    el.addEventListener('dblclick', (ev) => { const t = ev.target.closest('.pg-thumb'); if (t) show(Number(t.dataset.i)); });
+    win.cleanup = stopShow;
+  }
+
+  // ---------- paint ----------
+  function wirePaint(win, item) {
+    const el = win.el;
+    const canvas = el.querySelector('.pt-canvas');
+    const ctx = canvas.getContext('2d');
+    const W = 800;
+    const H = 500;
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    const state = { tool: 'pencil', size: 4, color: '#000000', drawing: false };
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // the picture you opened, scaled to fill the canvas (or a blank white page)
+    const base = new Image();
+    const reset = () => {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, W, H);
+      if (base.complete && base.naturalWidth) {
+        const scale = Math.max(W / base.naturalWidth, H / base.naturalHeight);
+        const dw = base.naturalWidth * scale;
+        const dh = base.naturalHeight * scale;
+        ctx.drawImage(base, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      }
+    };
+    reset();
+    if (item) { base.onload = reset; base.src = item.image || win.site.sampleImage; }
+
+    const point = (ev) => {
+      const r = canvas.getBoundingClientRect();
+      return [(ev.clientX - r.left) * (W / r.width), (ev.clientY - r.top) * (H / r.height)];
+    };
+
+    el.querySelector('.pt-ribbon').addEventListener('click', (ev) => {
+      const tool = ev.target.closest('[data-tool]');
+      const size = ev.target.closest('[data-size]');
+      const color = ev.target.closest('[data-color]');
+      if (tool) { state.tool = tool.dataset.tool; el.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('is-on', b === tool)); }
+      if (size) { state.size = Number(size.dataset.size); el.querySelectorAll('[data-size]').forEach((b) => b.classList.toggle('is-on', b === size)); }
+      if (color) {
+        state.color = color.dataset.color;
+        el.querySelector('.pt-current i').style.background = state.color;
+        if (state.tool === 'eraser') el.querySelector('[data-tool="pencil"]').click();
+      }
+      if (ev.target.closest('[data-act="clear"]')) reset();
+    });
+
+    canvas.addEventListener('pointerdown', (ev) => {
+      state.drawing = true;
+      canvas.setPointerCapture(ev.pointerId);
+      ctx.beginPath();
+      ctx.moveTo(...point(ev));
+    });
+    canvas.addEventListener('pointermove', (ev) => {
+      const [x, y] = point(ev);
+      el.querySelector('.pt-pos').textContent = `⌖ ${Math.round(x)}, ${Math.round(y)}px`;
+      if (!state.drawing) return;
+      ctx.strokeStyle = state.tool === 'eraser' ? '#ffffff' : state.color;
+      ctx.lineWidth = state.tool === 'pencil' ? Math.max(1, state.size / 3) : state.tool === 'eraser' ? state.size * 3 : state.size;
+      ctx.lineCap = ctx.lineJoin = 'round';
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    });
+    const stop = () => { state.drawing = false; };
+    canvas.addEventListener('pointerup', stop);
+    canvas.addEventListener('pointercancel', stop);
+  }
+
+  // ---------- search boxes filter what's in the window ----------
+  function wireSearch(win) {
+    const input = win.el.querySelector('.w7-client .w7-search input, .w7-chrome .w7-search input');
+    if (!input || win.el.classList.contains('app-browser')) return;
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+      win.el.querySelectorAll('[data-search]').forEach((x) => { x.hidden = q && !x.dataset.search.includes(q); });
+    });
+  }
+
+  // ---------- properties dialog (control panel + paint) ----------
+  function properties(win, i) {
+    const item = win.site.items[i];
+    const e = w.api.esc;
+    const icon = item.image ? `<img src="${e(item.image)}" alt="">` : ICON[ITEM_ICONS[i % ITEM_ICONS.length]];
+    const box = document.createElement('div');
+    box.className = 'w7-modal';
+    box.innerHTML = `
+      <div class="w7-dialog" role="dialog" aria-label="${e(item.title)} Properties">
+        <header class="w7-titlebar small"><span class="w7-title"><span>${e(item.title)} Properties</span></span>
+          <span class="w7-caps"><button type="button" class="cap cap-close" data-act="dlg-close" aria-label="Close"><i></i></button></span></header>
+        <div class="dlg-tabs"><span class="is-on">General</span><span>Details</span></div>
+        <div class="dlg-body">
+          <div class="dlg-row"><span class="dlg-ico">${icon}</span><span class="dlg-field">${e(item.title)}</span></div>
+          <hr>
+          <dl><dt>Type:</dt><dd>${item.theme ? 'Theme' : 'Project'}</dd><dt>Tags:</dt><dd>${e(item.tags.join(', ') || '—')}</dd><dt>Description:</dt><dd>${e(item.text)}</dd></dl>
+        </div>
+        <div class="dlg-btns">
+          ${item.href ? `<a class="w7-btn is-default" href="${e(item.href)}">Open</a>` : ''}
+          <button type="button" class="w7-btn" data-act="dlg-close">OK</button>
+          <button type="button" class="w7-btn" data-act="dlg-close">Cancel</button>
+        </div>
+      </div>`;
+    win.el.append(box);
+    box.querySelector('.w7-btn').focus();
+    w.music.blip(true);
+  }
+
+  // ======================= START MENU, CLOCK, MUSIC =======================
+  function closeStart() {
+    const menu = w.root.querySelector('.w7-start');
+    menu.hidden = true;
+    w.root.querySelector('.w7-orb').setAttribute('aria-expanded', 'false');
+  }
+
+  function tickClock() {
+    if (!w) return;
+    const now = new Date();
+    w.root.querySelector('.w7-clock time').textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    w.root.querySelector('.w7-clock small').textContent = now.toLocaleDateString();
+    w.root.querySelector('.w7-clock').title = now.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
+  function setMusicButton() {
+    const btn = w.root.querySelector('.w7-music');
+    btn.innerHTML = w.musicWanted ? ICON.speakerOn : ICON.speakerOff;
+    btn.setAttribute('aria-label', w.musicWanted ? 'Mute music' : 'Play music');
+    btn.title = btn.getAttribute('aria-label');
+    w.root.querySelectorAll('.pz-sound').forEach((s) => { s.textContent = w.musicWanted ? 'Frutiger loop' : 'Muted'; });
+  }
+
+  function toggleMusic() {
+    w.musicWanted = !w.musicWanted;
+    try { localStorage.setItem('aero-music', w.musicWanted ? 'on' : 'off'); } catch (e) {}
+    if (w.musicWanted) w.music.start(); else w.music.stop();
+    setMusicButton();
+  }
+
+  // ======================= THE THEME =======================
+  Theme.register('aero', {
+    modes: ['light', 'dark'],   // light = sunny day, dark = night with aurora
+    spa: true,                  // windows stay open and the music keeps playing between pages
+
+    mount(root, site, api) {
+      root.innerHTML = shell(site, api);
+      let musicPref = 'on';
+      try { musicPref = localStorage.getItem('aero-music') || 'on'; } catch (e) {}
+      w = {
+        root, site, api, wins: {}, z: 10, active: null,
+        music: new AeroMusic(),
+        musicWanted: !api.preview && musicPref !== 'off',
+        stopBubbles: startBubbles(root.querySelector('.w7-bubbles'), api),
+        clock: setInterval(tickClock, 15000),
+      };
+      tickClock();
+      setMusicButton();
+      openWindow(site.page, site);
+
+      // Music plays unless muted. Browsers only allow sound after a click on the page,
+      // so: try now (works if they just clicked to pick this theme), and if it's still
+      // blocked, start on their next click or key press.
+      w.unlock = () => {
+        if (!w?.musicWanted) return;
+        w.music.start().then(() => {
+          if (w?.music.ctx?.state === 'running') {
+            document.removeEventListener('pointerdown', w.unlock);
+            document.removeEventListener('keydown', w.unlock);
+          }
+        }).catch(() => {});
+      };
+      if (w.musicWanted) w.unlock();
+      document.addEventListener('pointerdown', w.unlock);
+      document.addEventListener('keydown', w.unlock);
+      w.onHide = () => {
+        if (!w) return;
+        if (document.hidden) w.music.stop();
+        else if (w.musicWanted && w.music.ctx) w.music.start();
+      };
+      document.addEventListener('visibilitychange', w.onHide);
+
+      if (w.musicWanted && !sessionStorage.getItem('aero-balloon') && !(navigator.userActivation?.hasBeenActive)) {
+        const balloon = root.querySelector('.w7-balloon');
+        balloon.hidden = false;
+        sessionStorage.setItem('aero-balloon', '1');
+        setTimeout(() => { balloon.hidden = true; }, 7000);
+      }
+
+      root.addEventListener('click', (ev) => {
+        const t = ev.target;
+        const winEl = t.closest('.w7-win');
+        const win = winEl && w.wins[winEl.dataset.key];
+        const act = t.closest('[data-act]')?.dataset.act;
+
+        if (t.closest('.w7-orb')) {
+          const menu = root.querySelector('.w7-start');
+          menu.hidden = !menu.hidden;
+          root.querySelector('.w7-orb').setAttribute('aria-expanded', String(!menu.hidden));
+          w.music.blip();
+          return;
+        }
+        if (!t.closest('.w7-start')) closeStart();
+
+        const launcher = t.closest('[data-launch]');
+        if (launcher) { launch(launcher.dataset.launch); w.music.blip(); return; }
+
+        if (act === 'picker') { closeStart(); api.openPicker(); return; }
+        if (act === 'music' || t.closest('.w7-music')) { toggleMusic(); return; }
+        if (t.closest('.w7-peek')) { Object.keys(w.wins).forEach((k) => !w.wins[k].minimized && minimize(k)); return; }
+        if (t.closest('.w7-balloon')) { t.closest('.w7-balloon').hidden = true; return; }
+
+        if (win) {
+          if (act === 'min') { minimize(win.key); return; }
+          if (act === 'max') { winEl.classList.toggle('is-max'); return; }
+          if (act === 'close') { closeWindow(win.key); return; }
+          if (act === 'back') { history.back(); return; }
+          if (act === 'fwd') { history.forward(); return; }
+          if (act === 'refresh') { api.navigate(location.href); return; }
+          if (act === 'view') { winEl.querySelector('.ex')?.classList.toggle('is-details'); return; }
+          if (act === 'dlg-close') { t.closest('.w7-modal').remove(); return; }
+          if (act === 'open' && t.closest('[aria-disabled]')) { ev.preventDefault(); return; }
+          const props = t.closest('[data-props]');
+          if (props) { properties(win, Number(props.dataset.props)); return; }
+          // (windows come to the front on pointerdown, below)
+        }
+      });
+
+      // drag windows by the title bar, double-click to maximize
+      root.addEventListener('pointerdown', (ev) => {
+        const winEl = ev.target.closest('.w7-win');
+        if (winEl) focusWindow(winEl.dataset.key);
+        const bar = ev.target.closest('.w7-win > .w7-titlebar');
+        if (!bar || ev.target.closest('button') || winEl.classList.contains('is-max') || innerWidth < 760) return;
+        const startX = ev.clientX - winEl.offsetLeft;
+        const startY = ev.clientY - winEl.offsetTop;
+        const move = (m) => {
+          winEl.style.left = `${Math.min(innerWidth - 120, Math.max(-winEl.offsetWidth + 120, m.clientX - startX))}px`;
+          winEl.style.top = `${Math.min(innerHeight - 90, Math.max(0, m.clientY - startY))}px`;
+        };
+        const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); };
+        addEventListener('pointermove', move);
+        addEventListener('pointerup', up);
+      });
+      root.addEventListener('dblclick', (ev) => {
+        const bar = ev.target.closest('.w7-win > .w7-titlebar');
+        if (bar && !ev.target.closest('button')) bar.parentElement.classList.toggle('is-max');
+      });
+
+      root.addEventListener('pointerover', (ev) => {
+        const el = ev.target.closest('.w7-app, .w7-dicon, .sm-prog, .cap, .ex-file, .pz-theme');
+        if (el && !el.contains(ev.relatedTarget)) w.music.blip();
+      });
+
+      root.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') { closeStart(); root.querySelector('.w7-modal')?.remove(); }
+        if (ev.key === 'Enter' && ev.target.closest('.ex-file')) ev.target.closest('.w7-win').querySelector('.cmd-open:not([aria-disabled])')?.click();
+      });
+
+      // start menu search filters the program list
+      root.querySelector('.sm-search input').addEventListener('input', (ev) => {
+        const q = ev.target.value.trim().toLowerCase();
+        root.querySelectorAll('.sm-prog').forEach((p) => { p.hidden = q && !p.textContent.toLowerCase().includes(q); });
+      });
+    },
+
+    // the Themes button opens Personalization instead of the standard popup
+    picker() { launch('themes'); },
+
+    // a link loaded a new page: open (or refresh) that page's app
+    update(root, site) {
+      w.site = site;
+      closeStart();
+      openWindow(site.page, site);
+    },
+
+    unmount() {
+      if (!w) return;
+      w.music.destroy();
+      w.stopBubbles();
+      clearInterval(w.clock);
+      document.removeEventListener('pointerdown', w.unlock);
+      document.removeEventListener('keydown', w.unlock);
+      document.removeEventListener('visibilitychange', w.onHide);
+      w = null;
+    },
+  });
+})();

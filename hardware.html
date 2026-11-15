@@ -4,17 +4,40 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Thomas | Hardware</title>
+  <!-- Site themes: apply light/dark, and a theme picked on an earlier page, before
+       the page draws. A reload goes back to Original. -->
+  <script>
+    (function () {
+      var html = document.documentElement;
+      try {
+        var mode = localStorage.getItem('mode');
+        if (mode) html.dataset.mode = mode;
+        html.dataset.scheme = mode || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        html.style.colorScheme = html.dataset.scheme;
+        var nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+        if (nav && nav.type === 'reload') sessionStorage.removeItem('theme');
+        var preview = /^#preview-([\w-]+)/.exec(location.hash);
+        var theme = preview ? preview[1] : sessionStorage.getItem('theme');
+        if (theme && theme !== 'original') {
+          html.dataset.pendingTheme = theme;
+          html.classList.add('theme-loading');
+          setTimeout(function () { html.classList.remove('theme-loading'); }, 4000);
+        }
+      } catch (e) {}
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Doto:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css"> 
+  <link rel="stylesheet" href="style.css">
+  <script src="theme-core.js" defer></script>
   <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/svg+xml" href="/favicon/favicon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png">
   <link rel="manifest" href="/favicon/site.webmanifest"> 
 </head>
-<body>
+<body data-page="hardware">
     <header class="navbar">
         <a href="index.html" class="logo">Thomas Fitzgerald</a>
         <nav class="nav">
@@ -119,6 +142,8 @@
     <aside class="sidebar">
         <p class="intro">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
         <div class="links">
+            <!-- theme-core.js puts the Themes button + light/dark icon here -->
+            <div id="theme-controls-slot"></div>
             <a href="https://github.com/staunchlemur29">GITHUB ↗</a>
             <a href="mailto:you@example.com">EMAIL ↗</a>
         </div>
