@@ -232,8 +232,6 @@
     let frame = 0, last = 0, t = 0;
 
     // ---- shapes (u = 0..1 across the screen) ----
-    const farRidge = (u) => hz - H * (0.058 + 0.026 * Math.sin(u * 4.6 + 1.3) + 0.014 * Math.sin(u * 10.3 + 0.4) + 0.006 * Math.sin(u * 23 + 2));
-    const midRidge = (u) => hz - H * (0.012 + 0.05 * (0.5 + 0.5 * Math.sin(u * 5.2 + 0.9)) ** 2.2 + 0.008 * Math.sin(u * 13 + 1));
     const bankRidge = (u) => H * (0.775 + 0.155 * smooth(0, 0.9, u) - 0.03 * Math.max(0, (u - 0.85) / 0.15) ** 2 + 0.006 * Math.sin(u * 9 + 0.5));
     const ridgePath = (c, fn, bottom) => {
       c.beginPath();
@@ -430,54 +428,111 @@
         L.rays = rc; L.raySize = size;
       } else L.rays = null;
 
-      // land above the lake: far range, nearer rolling hills, mist
+      // land above the lake: four ranges, farthest first. Each farther one is
+      // smaller, bluer and hazier; haze settles between them; slopes facing the
+      // sun (on the right) are lit, the others shaded. The nearest hills only
+      // rise at the sides, so the lake opens into a valley.
+      const ranges = [
+        { r: (x) => { const q = x / H; return hz - H * (0.078 + 0.016 * Math.sin(q * 6.3 + 1.3) + 0.011 * Math.sin(q * 13.1 + 0.4) + 0.005 * Math.sin(q * 29 + 2)); },
+          hmax: 0.115, day: ['#80b4d6', '#acd5ea'], nite: ['#0f2a46', '#14395a'], tex: 0.05, shade: 0.07, trees: 0, sc: 0.5 },
+        { r: (x) => { const q = x / H; return hz - H * (0.05 + 0.02 * Math.sin(q * 3.7 + 2.2) + 0.012 * Math.sin(q * 8.9 + 0.7) + 0.004 * Math.sin(q * 21 + 1)); },
+          hmax: 0.09, day: ['#6fae9f', '#a3d3c6'], nite: ['#0d2f3a', '#123f48'], tex: 0.1, shade: 0.12, trees: 0.06, sc: 0.7 },
+        { r: (x) => { const q = x / H; return hz - H * (0.016 + 0.036 * (0.5 + 0.5 * Math.sin(q * 2.6 + 0.4)) ** 1.6 + 0.007 * Math.sin(q * 7.3 + 2)); },
+          hmax: 0.06, day: ['#57ab44', '#93cd7a'], nite: ['#0c392e', '#12493d'], tex: 0.28, shade: 0.24, trees: 0.12, sc: 1 },
+        { r: (x) => { const u = x / W, q = x / H; const h = 0.072 * smooth(0.42, 0, u) + 0.05 * smooth(0.8, 1.04, u); return hz + 1 - H * h * (0.86 + 0.14 * Math.sin(q * 9 + 1)); },
+          hmax: 0.075, day: ['#479e37', '#7bbf60'], nite: ['#0a3326', '#0f4232'], tex: 0.34, shade: 0.3, trees: 0.16, sc: 1.3, rim: true },
+      ];
       const [land, l] = layer(W, hz);
-      ridgePath(l, farRidge, hz);
-      g = l.createLinearGradient(0, hz - H * 0.11, 0, hz);
-      g.addColorStop(0, night ? '#0c2742' : '#6aa9cf'); g.addColorStop(1, night ? '#123a55' : '#a7d6ea');
-      l.fillStyle = g; l.fill();
-      ridgePath(l, midRidge, hz);
-      g = l.createLinearGradient(0, hz - H * 0.065, 0, hz);
-      g.addColorStop(0, night ? '#0b2e2e' : '#4aa63f'); g.addColorStop(0.65, night ? '#0e3a39' : '#6dbb55'); g.addColorStop(1, night ? '#12463f' : '#8fcd78');
-      l.fillStyle = g; l.fill();
-      // fields and hedgerows on the near hills, a softer mottle on the hazy far range
-      texture(l, 0, hz - H * 0.13, W, H * 0.13, (x, y) => {
-        const u = x / W;
-        if (y >= midRidge(u)) {
-          const depth = 1 - (hz - y) / (H * 0.07);                            // 1 at the waterline
-          const s = 1 + (1 - depth) * 0.6;
-          let f = 1 + (N.fbm(x / (60 * s), y / (36 * s), 3) - 0.5) * 0.32;     // sunlit and shaded meadow
-          f *= 1 - smooth(0.58, 0.78, N.fbm(x / 9 + 50, y / 7, 3)) * 0.13;    // soft clumps of trees
-          return f + (N.noise(x / 2.5, y / 2.5) - 0.5) * 0.04;                // grain
+      ranges.forEach((rg, i) => {
+        ridgePath(l, (u) => rg.r(u * W), hz);
+        const c = night ? rg.nite : rg.day;
+        g = l.createLinearGradient(0, hz - H * rg.hmax, 0, hz);
+        g.addColorStop(0, c[0]); g.addColorStop(1, c[1]);
+        l.fillStyle = g; l.fill();
+        if (i >= 2) {                                                           // a thin sunlit edge on the near hills
+          ridgeLine(l, (u) => rg.r(u * W));
+          l.strokeStyle = night ? 'rgba(120,255,210,0.14)' : 'rgba(255,255,240,0.32)';
+          l.lineWidth = 1; l.stroke();
         }
-        if (y >= farRidge(u)) return 1 + (N.fbm(x / 90, y / 18, 3) - 0.5) * 0.14;
+        if (i < ranges.length - 1) {                                            // haze between this range and the next
+          g = l.createLinearGradient(0, hz - H * 0.05, 0, hz);
+          g.addColorStop(0, night ? 'rgba(40,110,140,0)' : 'rgba(225,244,255,0)');
+          g.addColorStop(1, night ? 'rgba(40,110,140,0.22)' : 'rgba(225,244,255,0.42)');
+          l.fillStyle = g; l.fillRect(0, hz - H * 0.05, W, H * 0.05);
+        }
+      });
+      texture(l, 0, hz - H * 0.13, W, H * 0.13, (x, y) => {
+        for (let i = ranges.length - 1; i >= 0; i--) {
+          const rg = ranges[i], top = rg.r(x);
+          if (y < top) continue;
+          const dist = y - top, slope = (rg.r(x + 3) - rg.r(x - 3)) / 6, sc = rg.sc;
+          let f = 1 + Math.tanh(slope * 5) * rg.shade * Math.exp(-dist / (H * 0.03));   // lit / shaded slope
+          f += (N.fbm(x / (55 * sc), y / (24 * sc), 3) - 0.5) * rg.tex;                  // meadow patches
+          if (rg.trees) f *= 1 - smooth(0.6, 0.78, N.fbm(x / (8 * sc) + 50 * i, y / (6 * sc), 3)) * rg.trees;
+          if (sc >= 1) f += (N.noise(x / 2.5, y / 2.5) - 0.5) * 0.04;
+          return f;
+        }
         return 1;
       });
-      ridgeLine(l, midRidge);
-      l.strokeStyle = night ? 'rgba(120,255,210,0.18)' : 'rgba(255,255,255,0.4)';
-      l.lineWidth = 1.2; l.stroke();
-      g = l.createLinearGradient(0, hz - H * 0.035, 0, hz);
+      g = l.createLinearGradient(0, hz - H * 0.02, 0, hz);
       g.addColorStop(0, night ? 'rgba(60,150,170,0)' : 'rgba(235,250,255,0)');
-      g.addColorStop(1, night ? 'rgba(60,150,170,0.12)' : 'rgba(235,250,255,0.2)');
-      l.fillStyle = g; l.fillRect(0, hz - H * 0.035, W, H * 0.035);
+      g.addColorStop(1, night ? 'rgba(60,150,170,0.1)' : 'rgba(235,250,255,0.16)');
+      l.fillStyle = g; l.fillRect(0, hz - H * 0.02, W, H * 0.02);
       L.land = land;
 
-      // the lake's own colour, laid over the reflection (deeper = more water, less mirror)
+      // the lake's own colour over the reflection: mirror-like far away,
+      // deeper aqua close up, turquoise shallows along the shore
       const lakeH = H - hz;
       const [tint, tc] = layer(W, lakeH);
       g = tc.createLinearGradient(0, 0, 0, lakeH);
-      if (night) { g.addColorStop(0, 'rgba(10,40,70,0.15)'); g.addColorStop(1, 'rgba(2,12,26,0.65)'); }
-      else { g.addColorStop(0, 'rgba(210,240,255,0.12)'); g.addColorStop(0.5, 'rgba(40,140,190,0.28)'); g.addColorStop(1, 'rgba(8,80,130,0.55)'); }
+      if (night) { g.addColorStop(0, 'rgba(10,40,70,0.12)'); g.addColorStop(1, 'rgba(2,14,30,0.62)'); }
+      else { g.addColorStop(0, 'rgba(150,220,245,0.08)'); g.addColorStop(0.4, 'rgba(10,150,200,0.3)'); g.addColorStop(1, 'rgba(0,92,150,0.58)'); }
       tc.fillStyle = g; tc.fillRect(0, 0, W, lakeH);
       g = tc.createLinearGradient(sun.x - W * 0.12, 0, sun.x + W * 0.12, 0);   // bright column under the sun / moon
       const col = night ? '190,215,255' : '255,255,240';
-      g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(0.5, `rgba(${col},${night ? 0.1 : 0.22})`); g.addColorStop(1, `rgba(${col},0)`);
+      g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(0.5, `rgba(${col},${night ? 0.1 : 0.2})`); g.addColorStop(1, `rgba(${col},0)`);
       tc.globalCompositeOperation = 'lighter';
       tc.fillStyle = g; tc.fillRect(0, 0, W, lakeH);
       tc.globalCompositeOperation = 'source-over';
-      tc.fillStyle = night ? 'rgba(150,220,255,0.1)' : 'rgba(255,255,255,0.18)';
+      tc.lineJoin = 'round';
+      for (const [off, wdt, a] of [[14, 30, 0.16], [5, 12, 0.22]]) {
+        ridgeLine(tc, bankRidge, -hz - off);
+        tc.strokeStyle = night ? `rgba(40,150,150,${a * 0.6})` : `rgba(70,225,205,${a})`;
+        tc.lineWidth = wdt; tc.stroke();
+      }
+      tc.fillStyle = night ? 'rgba(150,220,255,0.08)' : 'rgba(255,255,255,0.14)';
       tc.fillRect(0, 0, W, 1);                                                 // the far shoreline
       L.tint = tint;
+
+      // ripples: wavelets in perspective (wide and soft close up, fine lines far
+      // away), light where they catch the sky, dark where they show deep water.
+      // Three versions fade into each other so the surface keeps moving.
+      L.waves = [0, 1, 2].map((v) => {
+        const q = 2, ww = Math.ceil(W / q), wh = Math.ceil(lakeH / q);
+        const c = document.createElement('canvas');
+        c.width = ww; c.height = wh;
+        const x2 = c.getContext('2d');
+        const img = x2.createImageData(ww, wh), d = img.data;
+        const lite = night ? [170, 200, 240] : [255, 255, 255], dark = night ? [0, 6, 16] : [0, 70, 125];
+        for (let py = 0; py < wh; py++) {
+          const dd = (py * q) / lakeH, z = dd + 0.04;
+          const fade = smooth(0.02, 0.35, dd);
+          for (let px = 0; px < ww; px++) {
+            const X = (px * q - W / 2) / z, Z = 1 / z;
+            const n = (N.fbm(X / 150 + v * 41, Z * 11 + v * 17, 3) - 0.5) * 2;
+            const i = (py * ww + px) * 4;
+            if (n > 0.12) {
+              d[i] = lite[0]; d[i + 1] = lite[1]; d[i + 2] = lite[2];
+              d[i + 3] = Math.min(1, (n - 0.12) * 1.1) * fade * (night ? 90 : 130);
+            } else if (n < -0.08) {
+              d[i] = dark[0]; d[i + 1] = dark[1]; d[i + 2] = dark[2];
+              d[i + 3] = Math.min(1, (-n - 0.08) * 1.2) * fade * (night ? 120 : 95);
+            }
+          }
+        }
+        x2.putImageData(img, 0, 0);
+        return c;
+      });
       L.up = layer(W, hz);
 
       // the grassy bank in front
@@ -673,6 +728,17 @@
         ctx.drawImage(up, 0, sy * dpr, up.width, row * dpr, xo - 6, y, W + 12, row + 0.5);
       }
       ctx.drawImage(L.tint, 0, hz, W, lakeH);
+      {
+        const ws = L.waves.map((_, i) => (0.5 + 0.5 * Math.cos(t * 0.45 - i * PI * 2 / 3)) ** 2);
+        const sum = ws.reduce((a, b) => a + b, 0);
+        L.waves.forEach((c, i) => {
+          const a = ws[i] / sum;
+          if (a < 0.02) return;
+          ctx.globalAlpha = Math.min(1, a * 1.6);
+          ctx.drawImage(c, 0, hz, W, lakeH);
+        });
+        ctx.globalAlpha = 1;
+      }
       ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = night ? 'rgb(200,225,255)' : '#fff';
       for (const g of glints) {
