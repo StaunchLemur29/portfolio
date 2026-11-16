@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- Pitwall: a racing steering wheel, drawn to sit with the Oxygen icons -->
+  <defs>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6b6f76"/>
+      <stop offset=".45" stop-color="#2b2e33"/>
+      <stop offset="1" stop-color="#0d0e10"/>
+    </linearGradient>
+    <linearGradient id="spoke" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f6f8"/>
+      <stop offset=".5" stop-color="#b9bfc6"/>
+      <stop offset="1" stop-color="#7c838b"/>
+    </linearGradient>
+    <radialGradient id="hub" cx=".4" cy=".3" r=".8">
+      <stop offset="0" stop-color="#ffb08a"/>
+      <stop offset=".45" stop-color="#ff5a1f"/>
+      <stop offset="1" stop-color="#b22d00"/>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="24" cy="44.5" rx="15" ry="2.2" fill="#000" opacity=".22"/>
+  <!-- rim -->
+  <circle cx="24" cy="23" r="19" fill="none" stroke="url(#rim)" stroke-width="6"/>
+  <circle cx="24" cy="23" r="21.6" fill="none" stroke="#000" stroke-opacity=".35" stroke-width=".8"/>
+  <!-- grips -->
+  <path d="M7.2 17.5a17.6 17.6 0 0 0 0 11" fill="none" stroke="#1a1b1e" stroke-width="6.6" stroke-linecap="round"/>
+  <path d="M40.8 17.5a17.6 17.6 0 0 1 0 11" fill="none" stroke="#1a1b1e" stroke-width="6.6" stroke-linecap="round"/>
+  <!-- centre marker -->
+  <path d="M22 4.1h4v5.6h-4z" fill="#ff4f00"/>
+  <!-- spokes -->
+  <path d="M7 21.5h12l3 4h4l3-4h12v4.2H30.5l-2.5 3.6V38h-8v-8.7l-2.5-3.6H7z" fill="url(#spoke)" stroke="#5d646c" stroke-width=".8" stroke-linejoin="round"/>
+  <!-- hub -->
+  <circle cx="24" cy="23.5" r="6" fill="url(#hub)" stroke="#7a1f00" stroke-width=".8"/>
+  <circle cx="24" cy="23.5" r="2.6" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.2"/>
+  <!-- shine -->
+  <path d="M9.5 15A16 16 0 0 1 38.5 15a22 9 0 0 0-29 0z" fill="url(#gloss)"/>
+  <ellipse cx="22.5" cy="20.8" rx="3.4" ry="1.6" fill="#fff" opacity=".45"/>
+</svg>

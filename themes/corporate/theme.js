@@ -10,7 +10,13 @@
     '<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4M3 17l9 4 9-4"/>',     // layers
     '<path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/>',                       // shield
   ];
-  const icon = (i) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[i % ICONS.length]}</svg>`;
+  // Projects with data-icon="..." get their own glyph, drawn in the same line style.
+  const PROJECT_ICONS = {
+    pitwall: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.2"/><path d="M3.4 10.6c2.8-.9 5.4-.9 6.7.3M20.6 10.6c-2.8-.9-5.4-.9-6.7.3M12 14.2V21"/>', // steering wheel
+    kiln: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="m8 3 4 4 4-4"/><rect x="6" y="10" width="9" height="7" rx="1"/><path d="M18 11v.01M18 14v.01"/>', // CRT television
+    paddock: '<rect x="4" y="4" width="16" height="7" rx="1.5"/><rect x="4" y="13" width="16" height="7" rx="1.5"/><path d="M8 7.5h.01M8 16.5h.01M12 7.5h4M12 16.5h4"/>', // server
+  };
+  const icon = (i, name) => `<svg viewBox="0 0 24 24" aria-hidden="true">${PROJECT_ICONS[name] || ICONS[i % ICONS.length]}</svg>`;
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 
   function render(root, site, api) {
@@ -76,7 +82,7 @@
             <div class="co-cards">
               ${cards.map((c, i) => `
                 <article class="co-card">
-                  <span class="co-icon">${icon(i)}</span>
+                  <span class="co-icon">${icon(i, c.icon)}</span>
                   <h3>${e(c.title)}</h3>
                   <p>${e(c.text)}</p>
                   ${c.tags?.length ? `<p class="co-tags">${c.tags.map(e).join(' · ')}</p>` : ''}

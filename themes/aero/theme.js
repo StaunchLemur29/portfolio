@@ -279,6 +279,12 @@
     search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6" stroke="currentColor" stroke-width="2" fill="none"/><path d="m15 15 6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
   };
   const ITEM_ICONS = ['dev', 'terminal', 'calculator', 'monitor', 'configure'];
+  // Projects with their own icon (data-icon="..." on the card) get a drawn one that
+  // matches the Oxygen set instead of a shrunken screenshot.
+  const PROJECT_ICONS = new Set(['pitwall', 'kiln', 'paddock']);
+  const itemIcon = (item, fallback) => (PROJECT_ICONS.has(item.icon)
+    ? `<img class="w7-ico" src="${DIR}icons/${item.icon}.svg" alt="" draggable="false">`
+    : fallback);
 
   // ======================= APPS =======================
   // Which app shows which page, plus its taskbar name and icon.
@@ -456,7 +462,7 @@
               <div class="ex-grid" role="listbox" aria-label="${e(name)}">
                 ${site.items.map((item, i) => `
                   <button type="button" class="ex-file" role="option" data-i="${i}" data-fav="${item.favourite ? 1 : 0}" data-tags="${e(item.tags.join('|').toLowerCase())}" data-search="${e((item.title + ' ' + item.text + ' ' + item.tags.join(' ')).toLowerCase())}">
-                    <span class="ex-thumb">${item.image ? `<img src="${e(item.image)}" alt="">` : ICON.folder}</span>
+                    <span class="ex-thumb">${itemIcon(item, item.image ? `<img src="${e(item.image)}" alt="">` : ICON.folder)}</span>
                     <span class="ex-name">${e(item.title)}</span>
                     <span class="ex-col">${e(item.tags.join(', '))}</span>
                     <span class="ex-col">${item.theme ? 'Theme' : 'Project'}</span>
@@ -486,7 +492,7 @@
             <div class="cp-grid">
               ${site.items.map((item, i) => `
                 <div class="cp-cat" data-search="${e((item.title + ' ' + item.text + ' ' + item.tags.join(' ')).toLowerCase())}">
-                  <span class="cp-ico">${item.image ? `<img src="${e(item.image)}" alt="">` : ICON[ITEM_ICONS[i % ITEM_ICONS.length]]}</span>
+                  <span class="cp-ico">${itemIcon(item, item.image ? `<img src="${e(item.image)}" alt="">` : ICON[ITEM_ICONS[i % ITEM_ICONS.length]])}</span>
                   <div>
                     <button type="button" class="cp-title" data-props="${i}">${e(item.title)}</button>
                     <p>${e(item.text)}</p>
@@ -778,7 +784,7 @@
         return;
       }
       details.innerHTML = `
-        <span class="exd-ico">${item.image ? `<img src="${e(item.image)}" alt="">` : ICON.folder}</span>
+        <span class="exd-ico">${itemIcon(item, item.image ? `<img src="${e(item.image)}" alt="">` : ICON.folder)}</span>
         <div class="exd-main"><b>${e(item.title)}</b><span>${item.theme ? 'Theme' : 'Project'}</span></div>
         <dl><dt>Tags:</dt><dd>${e(item.tags.join('; ') || 'Add a tag')}</dd><dt>Description:</dt><dd>${e(item.text)}</dd></dl>`;
       if (item.href) { openBtn.setAttribute('href', item.href); openBtn.removeAttribute('aria-disabled'); }
@@ -967,7 +973,7 @@
   function properties(win, i) {
     const item = win.site.items[i];
     const e = w.api.esc;
-    const icon = item.image ? `<img src="${e(item.image)}" alt="">` : ICON[ITEM_ICONS[i % ITEM_ICONS.length]];
+    const icon = itemIcon(item, item.image ? `<img src="${e(item.image)}" alt="">` : ICON[ITEM_ICONS[i % ITEM_ICONS.length]]);
     const box = document.createElement('div');
     box.className = 'w7-modal';
     box.innerHTML = `

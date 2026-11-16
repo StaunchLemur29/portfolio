@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- Kiln: an old CRT television showing a warm, glitchy picture -->
+  <defs>
+    <linearGradient id="case" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e9e4da"/>
+      <stop offset=".55" stop-color="#bdb5a6"/>
+      <stop offset="1" stop-color="#8a8273"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff7ac8"/>
+      <stop offset=".45" stop-color="#7b4dff"/>
+      <stop offset="1" stop-color="#1fb5ff"/>
+    </linearGradient>
+    <radialGradient id="vignette" cx=".5" cy=".5" r=".7">
+      <stop offset=".55" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".6"/>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="lines" width="2" height="2" patternUnits="userSpaceOnUse">
+      <rect width="2" height="1" fill="#000" opacity=".22"/>
+    </pattern>
+  </defs>
+  <ellipse cx="24" cy="44.6" rx="18" ry="2" fill="#000" opacity=".22"/>
+  <!-- antenna -->
+  <path d="M24 12 15 3M24 12l10-8" stroke="#6f7378" stroke-width="1.4" stroke-linecap="round"/>
+  <circle cx="15" cy="3" r="1.4" fill="#9aa0a6"/><circle cx="34" cy="4" r="1.4" fill="#9aa0a6"/>
+  <!-- feet -->
+  <path d="M10 41h6l-1 3h-4zM32 41h6l-1 3h-4z" fill="#5e574b"/>
+  <!-- cabinet -->
+  <rect x="3" y="11" width="42" height="31" rx="5" fill="url(#case)" stroke="#6e675a" stroke-width=".8"/>
+  <!-- screen -->
+  <rect x="6.5" y="14.5" width="27" height="23.5" rx="5" fill="#16121c"/>
+  <rect x="8" y="16" width="24" height="20.5" rx="4" fill="url(#screen)"/>
+  <path d="M8 26.5h24v2.2H8z" fill="#fff" opacity=".35"/>
+  <path d="M8 30.5h24v1H8z" fill="#ffe36b" opacity=".45"/>
+  <rect x="8" y="16" width="24" height="20.5" rx="4" fill="url(#lines)"/>
+  <rect x="8" y="16" width="24" height="20.5" rx="4" fill="url(#vignette)"/>
+  <path d="M10 17.5h20a3 3 0 0 1 1 1.5c-6 2-15 2-22 1a3 3 0 0 1 1-2.5z" fill="url(#gloss)"/>
+  <!-- controls -->
+  <rect x="36" y="15" width="6.5" height="23" rx="1.5" fill="#a39b8b" opacity=".55"/>
+  <circle cx="39.2" cy="19.5" r="2.3" fill="#4c4840" stroke="#2b2924" stroke-width=".6"/>
+  <path d="M39.2 17.6v1.6" stroke="#ddd" stroke-width=".8" stroke-linecap="round"/>
+  <circle cx="39.2" cy="26" r="2.3" fill="#4c4840" stroke="#2b2924" stroke-width=".6"/>
+  <path d="M40.6 24.8l-1 1" stroke="#ddd" stroke-width=".8" stroke-linecap="round"/>
+  <path d="M37.2 31h4M37.2 32.6h4M37.2 34.2h4" stroke="#6e675a" stroke-width=".7"/>
+  <circle cx="39.2" cy="36.4" r=".8" fill="#ff3b30"/>
+  <!-- top shine -->
+  <path d="M5.5 13.2c10-1.5 27-1.5 37 0a3 3 0 0 0-2.5-1.4H8a3 3 0 0 0-2.5 1.4z" fill="#fff" opacity=".6"/>
+</svg>
