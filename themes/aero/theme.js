@@ -247,24 +247,49 @@
       for (let x = -2; x <= W + 2; x += 4) c[x === -2 ? 'moveTo' : 'lineTo'](x, fn(x / W) + dy);
     };
 
-    // ---- one cumulus cloud, from layered noise ----
-    // A few soft blobs give the overall shape (domed top, flat base); noise breaks
-    // up the edge; lighting compares density toward the light with density here.
-    function makeCloud(w, h, rnd) {
-      const res = 0.7;                                     // drawn a bit smaller than shown; it's soft anyway
-      const cw = Math.max(8, Math.round(w * res)), ch = Math.max(8, Math.round(h * res));
+    // ---- value noise (seeded) ----
+    function makeNoise(rnd) {
       const perm = new Uint8Array(512);
       for (let i = 0; i < 256; i++) perm[i] = i;
       for (let i = 255; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [perm[i], perm[j]] = [perm[j], perm[i]]; }
       for (let i = 0; i < 256; i++) perm[i + 256] = perm[i];
-      const hash = (x, y) => perm[(perm[x & 255] + y) & 511] / 255;
+      const hash = (x, y) => perm[(perm[x & 255] + (y & 255)) & 511] / 255;
       const noise = (x, y) => {
         const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
         const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
         const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
         return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
       };
-      const fbm = (x, y) => { let s = 0, a = 0.5; for (let o = 0; o < 5; o++) { s += a * noise(x, y); x *= 2.03; y *= 2.03; a *= 0.5; } return s; };
+      const fbm = (x, y, oct = 5) => { let s = 0, a = 0.5, n = 0; for (let o = 0; o < oct; o++) { s += a * noise(x, y); n += a; x *= 2.03; y *= 2.03; a *= 0.5; } return s / n; };
+      return { noise, fbm };
+    }
+
+    // Multiply the colour of every drawn pixel in a rectangle by fn(x, y) (CSS px).
+    function texture(c, x0, y0, w, h, fn) {
+      const X = Math.max(0, Math.floor(x0 * dpr)), Y = Math.max(0, Math.floor(y0 * dpr));
+      const cw = Math.min(c.canvas.width - X, Math.ceil(w * dpr)), ch = Math.min(c.canvas.height - Y, Math.ceil(h * dpr));
+      if (cw <= 0 || ch <= 0) return;
+      const img = c.getImageData(X, Y, cw, ch), d = img.data;
+      for (let py = 0; py < ch; py++) {
+        const y = (Y + py) / dpr;
+        for (let px = 0; px < cw; px++) {
+          const i = (py * cw + px) * 4;
+          if (d[i + 3] === 0) continue;
+          const f = fn((X + px) / dpr, y);
+          if (f === 1) continue;
+          d[i] = Math.min(255, d[i] * f); d[i + 1] = Math.min(255, d[i + 1] * f); d[i + 2] = Math.min(255, d[i + 2] * f);
+        }
+      }
+      c.putImageData(img, X, Y);
+    }
+
+    // ---- one cumulus cloud, from layered noise ----
+    // A few soft blobs give the overall shape (domed top, flat base); noise breaks
+    // up the edge; lighting compares density toward the light with density here.
+    function makeCloud(w, h, rnd) {
+      const res = 0.7;                                     // drawn a bit smaller than shown; it's soft anyway
+      const cw = Math.max(8, Math.round(w * res)), ch = Math.max(8, Math.round(h * res));
+      const { fbm } = makeNoise(rnd);
       const blobs = [];
       const n = 4 + Math.floor(rnd() * 3);
       for (let i = 0; i < n; i++) {
@@ -322,6 +347,7 @@
       sun = { x: W * 0.74, y: H * 0.16 };
       const rnd = seeded(night ? 11 : 7);
       const k = Math.min(1.4, Math.max(0.6, Math.min(W, H) / 800));   // detail scale
+      const N = makeNoise(seeded(night ? 23 : 19));
 
       // sky
       const [sky, s] = layer(W, hz);
@@ -333,6 +359,38 @@
       }
       s.fillStyle = g;
       s.fillRect(0, 0, W, hz);
+      // uneven haze and high wispy cirrus, so the sky isn't one clean fade
+      {
+        const q = 4, qw = Math.ceil(W / q), qh = Math.ceil(hz / q);
+        const qc = document.createElement('canvas');
+        qc.width = qw; qc.height = qh;
+        const qx = qc.getContext('2d');
+        const img = qx.createImageData(qw, qh), d = img.data;
+        const wisp = night ? [150, 172, 215] : [255, 255, 255];
+        for (let py = 0; py < qh; py++) {
+          const y = py * q, v = y / hz;
+          const band = smooth(0.03, 0.2, v) * (1 - smooth(0.5, 0.85, v));
+          for (let px = 0; px < qw; px++) {
+            const x = px * q;
+            const i = (py * qw + px) * 4;
+            const haze = N.fbm(x / 520, y / 260, 3) - 0.5;
+            const ty = y + x * 0.07;                                        // a slight diagonal sweep
+            const wx = x + (N.fbm(x / 260, ty / 90, 3) - 0.5) * 260;         // curl the streaks
+            const c = N.fbm(wx / 420 + 30, ty / 26, 5);
+            const a = smooth(0.5, 0.76, c) * band * (night ? 0.12 : 0.42);
+            if (haze > 0 || a > 0) {
+              const ha = Math.max(0, haze) * (night ? 0.05 : 0.22);
+              const al = a + ha * (1 - a);
+              d[i] = wisp[0]; d[i + 1] = wisp[1]; d[i + 2] = wisp[2]; d[i + 3] = al * 255;
+            } else {
+              d[i] = night ? 0 : 0; d[i + 1] = night ? 6 : 50; d[i + 2] = night ? 20 : 150; d[i + 3] = -haze * (night ? 0.25 : 0.16) * 255;
+            }
+          }
+        }
+        qx.putImageData(img, 0, 0);
+        s.imageSmoothingQuality = 'high';
+        s.drawImage(qc, 0, 0, qw * q, qh * q);
+      }
       const R = Math.max(W, H);
       if (night) {
         const mr = 10 + 0.022 * Math.min(W, H);
@@ -382,6 +440,19 @@
       g = l.createLinearGradient(0, hz - H * 0.065, 0, hz);
       g.addColorStop(0, night ? '#0b2e2e' : '#4aa63f'); g.addColorStop(0.65, night ? '#0e3a39' : '#6dbb55'); g.addColorStop(1, night ? '#12463f' : '#8fcd78');
       l.fillStyle = g; l.fill();
+      // fields and hedgerows on the near hills, a softer mottle on the hazy far range
+      texture(l, 0, hz - H * 0.13, W, H * 0.13, (x, y) => {
+        const u = x / W;
+        if (y >= midRidge(u)) {
+          const depth = 1 - (hz - y) / (H * 0.07);                            // 1 at the waterline
+          const s = 1 + (1 - depth) * 0.6;
+          let f = 1 + (N.fbm(x / (60 * s), y / (36 * s), 3) - 0.5) * 0.32;     // sunlit and shaded meadow
+          f *= 1 - smooth(0.58, 0.78, N.fbm(x / 9 + 50, y / 7, 3)) * 0.13;    // soft clumps of trees
+          return f + (N.noise(x / 2.5, y / 2.5) - 0.5) * 0.04;                // grain
+        }
+        if (y >= farRidge(u)) return 1 + (N.fbm(x / 90, y / 18, 3) - 0.5) * 0.14;
+        return 1;
+      });
       ridgeLine(l, midRidge);
       l.strokeStyle = night ? 'rgba(120,255,210,0.18)' : 'rgba(255,255,255,0.4)';
       l.lineWidth = 1.2; l.stroke();
@@ -418,6 +489,38 @@
       else { g.addColorStop(0, '#a3ea66'); g.addColorStop(0.18, '#62c63f'); g.addColorStop(0.6, '#33952a'); g.addColorStop(1, '#1b6a1c'); }
       b.fillStyle = g; b.fill();
       b.save(); b.clip();
+      // lawn texture: sunlit and shaded patches, vertical blade grain, then
+      // thousands of short blades (bigger toward the bottom, which is closer)
+      texture(b, 0, top - 4, W, H - top + 4, (x, y) => {
+        const dd = Math.max(0, (y - top) / (H - top)), s = 1 + dd * 3;
+        return 1 + (N.fbm(x / (70 * s), y / (20 * s), 3) - 0.5) * 0.5
+                 + (N.noise(x / (1.4 * s), y / (6 * s)) - 0.5) * 0.24;
+      });
+      {
+        const tones = night
+          ? [['rgba(110,210,150,0.16)', 'rgba(1,10,5,0.35)']]
+          : [['rgba(220,255,150,0.32)', 'rgba(15,70,10,0.3)']];
+        const paths = [new Path2D(), new Path2D(), new Path2D(), new Path2D()];   // [light, dark] x [thin, thick]
+        const count = Math.round(W * (H - top) / 9);
+        for (let i = 0; i < count; i++) {
+          const x = rnd() * W;
+          const ry = bankRidge(x / W) + 3;
+          const y = ry + rnd() ** 1.3 * (H - ry);
+          const dd = (y - top) / (H - top);
+          const len = (2 + rnd() * 5) * (0.5 + dd * 2.2) * k;
+          const lean = (rnd() - 0.45) * len * 0.5;
+          const light = N.fbm(x / 70, y / 20, 2) + (rnd() - 0.5) * 0.5 > 0.5;
+          const p = paths[(light ? 0 : 2) + (dd > 0.45 ? 1 : 0)];
+          p.moveTo(x, y);
+          p.lineTo(x + lean, y - len);
+        }
+        b.lineCap = 'round';
+        paths.forEach((p, i) => {
+          b.strokeStyle = tones[0][i < 2 ? 0 : 1];
+          b.lineWidth = (i % 2 ? 1.5 : 0.8) * k;
+          b.stroke(p);
+        });
+      }
       g = b.createRadialGradient(W * 0.18, top + H * 0.02, 0, W * 0.18, top + H * 0.02, W * 0.45);
       g.addColorStop(0, night ? 'rgba(120,255,210,0.08)' : 'rgba(255,255,255,0.35)'); g.addColorStop(1, 'rgba(255,255,255,0)');
       b.fillStyle = g; b.fillRect(0, top, W, H - top);
@@ -456,7 +559,7 @@
         const w = Math.min(560, Math.max(120, W * (0.34 - depth * 0.22) * (0.8 + rnd() * 0.4)));
         const h = w * (night ? 0.36 : 0.5);
         let cx = rnd() * (W + w) - w;
-        if (!night && Math.abs(cx + w / 2 - sun.x) < w * 0.7 + 60 && depth < 0.5) cx = (cx + W * 0.45) % W - w * 0.5;
+        if (Math.abs(cx + w / 2 - sun.x) < w * 0.7 + 60 && depth < 0.5) cx = (cx + W * 0.45) % W - w * 0.5;
         clouds.push({
           img: makeCloud(w, h, rnd), w, h,
           x: cx,
@@ -610,7 +713,11 @@
 
     const rebuild = () => { build(); draw(); };
     let pending = 0;
-    const ro = new ResizeObserver(() => { clearTimeout(pending); pending = setTimeout(rebuild, W ? 120 : 0); });
+    const ro = new ResizeObserver(() => {
+      if (canvas.clientWidth === W && canvas.clientHeight === H) return;     // the first call, right after build
+      clearTimeout(pending);
+      pending = setTimeout(rebuild, 120);
+    });
     ro.observe(canvas);
     const mo = new MutationObserver(() => { if ((html.dataset.scheme === 'dark') !== night) rebuild(); });
     mo.observe(html, { attributes: true, attributeFilter: ['data-scheme'] });
