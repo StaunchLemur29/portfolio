@@ -1,8 +1,8 @@
 /* Frutiger 7: a Windows 7 style desktop in the Frutiger Aero look.
    Every page is its own app with its own taskbar button:
      Home     -> a 2008 web browser showing a Web 2.0 homepage
-     Projects -> a file explorer (large icons, details pane, search)
-     Tools    -> a control panel (categories + properties dialogs)
+     Code     -> a file explorer (large icons, details pane, search)
+     Hardware -> a control panel (categories + properties dialogs)
      Design   -> a photo gallery (viewer, slide show, "Edit in Paint")
      Paint    -> its own app: draw on a picture from the gallery, or a blank page
      Themes   -> Personalization (the Themes button opens it too)
@@ -284,13 +284,13 @@
   // Which app shows which page, plus its taskbar name and icon.
   const APPS = {
     browser:     { name: 'Internet',       icon: 'home' },
-    explorer:    { name: 'Projects',       icon: 'folder' },
+    explorer:    { name: 'Code',           icon: 'folder' },
     control:     { name: 'Control Panel',  icon: 'tools' },
     gallery:     { name: 'Photo Gallery',  icon: 'gallery' },
     paint:       { name: 'Paint',          icon: 'paint' },
     personalize: { name: 'Personalization', icon: 'personalize' },
   };
-  const appForPage = (page) => ({ home: 'browser', projects: 'explorer', code: 'explorer', tools: 'control', hardware: 'control', design: 'gallery', themes: 'personalize', paint: 'paint' }[page] || 'explorer');
+  const appForPage = (page) => ({ home: 'browser', code: 'explorer', hardware: 'control', design: 'gallery', themes: 'personalize', paint: 'paint' }[page] || 'explorer');
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
   const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
@@ -430,7 +430,7 @@
       };
     },
 
-    // ---------- Projects: file explorer ----------
+    // ---------- Code: file explorer ----------
     explorer(site, api) {
       const e = api.esc;
       const name = cap(site.nav.find((n) => n.active)?.label || site.title || 'Folder');
@@ -471,12 +471,12 @@
       };
     },
 
-    // ---------- Tools: control panel ----------
+    // ---------- Hardware: control panel ----------
     control(site, api) {
       const e = api.esc;
       return {
         title: 'Control Panel',
-        chrome: addressBar([{ label: 'Control Panel' }, { label: cap(site.title || 'Tools') }], 'Search Control Panel', e),
+        chrome: addressBar([{ label: 'Control Panel' }, { label: cap(site.title || 'Hardware') }], 'Search Control Panel', e),
         client: `
           <div class="cp">
             <header class="cp-head">
@@ -725,7 +725,7 @@
     w.root.querySelector('.w7-apps').innerHTML = [...apps, ...extra].map((a) => {
       const win = w.wins[a.key];
       const state = win ? (w.active === a.key && !win.minimized ? 'is-open is-active' : 'is-open') : '';
-      const name = a.app === 'browser' ? 'Home' : APPS[a.app].name === 'Projects' ? a.label : APPS[a.app].name;
+      const name = a.app === 'browser' ? 'Home' : APPS[a.app].name === 'Code' ? a.label : APPS[a.app].name;
       return `<button type="button" class="w7-app ${state}" data-launch="${a.key}" title="${e(name)}" aria-label="${e(name)}">${ICON[APPS[a.app].icon]}</button>`;
     }).join('');
   }

@@ -28,7 +28,7 @@ themes/
    { id: 'vapor', group: 'Creative', name: 'Vaporwave', swatch: ['#ff71ce', '#01cdfe', '#05ffa1'],
      short: 'Pink, teal, 1995.', desc: 'A longer sentence about the theme.' },
    ```
-4. While you work, open any page with `#preview-vapor` on the end, e.g. `projects.html#preview-vapor`.
+4. While you work, open any page with `#preview-vapor` on the end, e.g. `code.html#preview-vapor`.
    It shows your theme without saving it. (Close and reopen the tab to see changes, since a
    change to just the `#...` part doesn't reload.)
 5. Make its thumbnail: `python themes/screenshot_themes.py vapor` (see below).
@@ -48,7 +48,7 @@ Until it has a `preview.webp`, those show its three swatch colours instead.
 | `site.name` | "Thomas Fitzgerald" (the logo text) |
 | `site.homeHref` | link to the home page |
 | `site.nav` | `[{ label, href, active }]` from the top nav |
-| `site.label` | the small label above the heading, e.g. "projects / 03" |
+| `site.label` | the small label above the heading, e.g. "code / 03" |
 | `site.title` | the page's `<h1>` |
 | `site.description` | the paragraph under the heading |
 | `site.items` | `[{ index, title, text, tags, href, image, theme, favourite }]`, one per project card |

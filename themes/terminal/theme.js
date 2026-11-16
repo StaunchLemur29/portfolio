@@ -64,7 +64,7 @@
         `<span class="dim">-rw-r--r--  visitor </span><span class="y">${e(pad(f.tags.join(',').toLowerCase() || '-', 22))}</span>${cmdLink(`cat ${f.index}`, f.file)}`));
     } },
 
-    cd: { about: 'go to a folder (cd projects, cd ..)', async run(args) {
+    cd: { about: 'go to a folder (cd code, cd ..)', async run(args) {
       const target = (args[0] || '~').replace(/\/$/, '');
       if (['~', '..', '/', 'home'].includes(target)) return go(t.site.homeHref, '~');
       if (target === 'themes') { COMMANDS.theme.run([]); return; }
