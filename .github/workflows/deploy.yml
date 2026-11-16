@@ -1,0 +1,110 @@
+# Publishes the site to GitHub Pages on every push to main.
+#
+# Testing first is OPTIONAL. Playwright runs before publishing only when one of
+# these is true; otherwise the site publishes straight away like before:
+#   1. the repo variable TEST_BEFORE_PUBLISH is "true"
+#      (Settings > Secrets and variables > Actions > Variables)
+#   2. the commit message contains [test]          e.g. "new card [test]"
+#   3. you start it by hand (Actions > Deploy site > Run workflow) with
+#      "Run Playwright tests first" ticked
+# If tests run and fail, nothing is published. A commit message containing
+# [skip tests] publishes without testing even when the variable is on.
+#
+# One-time setup: Settings > Pages > Build and deployment > Source = "GitHub Actions".
+
+name: Deploy site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_tests:
+        description: Run Playwright tests first
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one publish at a time; a newer push replaces a queued one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  decide:
+    runs-on: ubuntu-latest
+    outputs:
+      test: ${{ steps.pick.outputs.test }}
+    steps:
+      - id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+          MANUAL: ${{ inputs.run_tests }}
+          DEFAULT: ${{ vars.TEST_BEFORE_PUBLISH }}
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          test=false
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            test="$MANUAL"
+          elif [[ "$MESSAGE" == *"[skip tests]"* ]]; then
+            test=false
+          elif [[ "$MESSAGE" == *"[test]"* ]] || [ "$DEFAULT" = "true" ]; then
+            test=true
+          fi
+          echo "test=$test" >> "$GITHUB_OUTPUT"
+          if [ "$test" = "true" ]; then
+            echo "### Testing before publish" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Publishing without tests" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  test:
+    needs: decide
+    if: needs.decide.outputs.test == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+  deploy:
+    needs: [decide, test]
+    # runs when tests passed, or were skipped on purpose
+    if: always() && needs.decide.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      # Publish only the website, not the test tooling.
+      - name: Collect site files
+        run: |
+          mkdir _site
+          rsync -a ./ _site/ \
+            --exclude '.git' --exclude '.github' --exclude '_site' \
+            --exclude 'node_modules' --exclude 'tests' \
+            --exclude 'package.json' --exclude 'package-lock.json' \
+            --exclude 'playwright.config.js' --exclude 'playwright-report' \
+            --exclude 'test-results' --exclude '.gitignore'
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
