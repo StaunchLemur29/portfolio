@@ -67,8 +67,10 @@
             <h1>Design</h1>
             <p class="description">Various design projects and experiments. reach out to different business owners asking if they need a new website or a fresh look for their existing one.</p>
         </section>
+        <!-- Favourites: the big cards. Give a card data-favourite to put it here
+             (it also shows under Favourites in themes that have that filter). -->
         <div class="grid">
-            <article class="project" data-icon="paddock">
+            <article class="project" data-favourite data-icon="paddock">
                 <div class="thumb"><span>SCREENSHOT</span></div>
                 <div class="meta">
                     <span class="tag">Figma</span>
@@ -78,27 +80,7 @@
                 <p>Interactive preview for my homelab setup, created using Figma then implemented as a web app.</p>
                 <a href="https://staunchlemur29.github.io/paddock/" class="more">VIEW PROJECT →</a>
             </article>
-            <article class="project">
-                <div class="thumb"><span>SCREENSHOT</span></div>
-                <div class="meta">
-                    <span class="tag">Python</span>
-                    <span class="tag">SQL</span>
-                </div>
-                <h3>Project Name</h3>
-                <p>What it does and who it's for, in two short sentences.</p>
-                <a href="#" class="more">VIEW PROJECT →</a>
-            </article>
-            <article class="project">
-                <div class="thumb"><span>SCREENSHOT</span></div>
-                <div class="meta">
-                    <span class="tag">Python</span>
-                    <span class="tag">SQL</span>
-                </div>
-                <h3>Project Name</h3>
-                <p>What it does and who it's for, in two short sentences.</p>
-                <a href="#" class="more">VIEW PROJECT →</a>
-            </article>
-            <article class="project">
+            <article class="project" data-favourite>
                 <div class="thumb"><span>SCREENSHOT</span></div>
                 <div class="meta">
                     <span class="tag">Python</span>
@@ -109,6 +91,32 @@
                 <a href="#" class="more">VIEW PROJECT →</a>
             </article>
         </div>
+        <!-- Everything else: smaller tiles. -->
+        <section class="more-projects">
+            <div class="section-head"><span class="label">More projects</span><span class="label">02</span></div>
+            <div class="grid grid-small">
+                <article class="project">
+                    <div class="thumb"><span>SCREENSHOT</span></div>
+                    <div class="meta">
+                        <span class="tag">Python</span>
+                        <span class="tag">SQL</span>
+                    </div>
+                    <h3>Project Name</h3>
+                    <p>What it does and who it's for, in two short sentences.</p>
+                    <a href="#" class="more">VIEW PROJECT →</a>
+                </article>
+                <article class="project">
+                    <div class="thumb"><span>SCREENSHOT</span></div>
+                    <div class="meta">
+                        <span class="tag">Python</span>
+                        <span class="tag">SQL</span>
+                    </div>
+                    <h3>Project Name</h3>
+                    <p>What it does and who it's for, in two short sentences.</p>
+                    <a href="#" class="more">VIEW PROJECT →</a>
+                </article>
+            </div>
+        </section>
         <!-- Site themes: hover one to preview it, click to use it.
              data-themes-ui loads the theme engine when this scrolls into view. -->
         <section class="theme-strip" data-themes-ui>

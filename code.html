@@ -67,8 +67,10 @@
             <h1>Code</h1>
             <p class="description">A selection of my mostly open source software projects, including webpages, scripts, and applications I've built.</p>
         </section>
+        <!-- Favourites: the big cards. Give a card data-favourite to put it here
+             (it also shows under Favourites in themes that have that filter). -->
         <div class="grid">
-            <article class="project" data-icon="pitwall">
+            <article class="project" data-favourite data-icon="pitwall">
                 <img class="thumb" src="images/pitwall-thumbnail.jpg" alt="Dashboard displaying analysis alongside a live session">
                 <div class="meta">
                     <span class="tag">Python</span>
@@ -79,7 +81,7 @@
                 <p>Sim race coaching hub with turn-by-turn analysis and feedback</p>
                 <a href="https://github.com/StaunchLemur29/Pitwall" class="more">VIEW PROJECT →</a>
             </article>
-            <article class="project" data-icon="kiln">
+            <article class="project" data-favourite data-icon="kiln">
                 <img class="thumb" src="images/image.png" alt="KILN window showing a sunset run through a worn camcorder look, with preset previews beside it.">
                 <div class="meta">
                     <span class="tag">Rust</span>
@@ -89,47 +91,53 @@
                 <p>Analogue video emulator for MacOS built using Rust</p>
                 <a href="https://github.com/StaunchLemur29/KILN" class="more">VIEW PROJECT →</a>
             </article>
-            <article class="project">
-                <div class="thumb"><span>SCREENSHOT</span></div>
-                <div class="meta">
-                    <span class="tag">Python</span>
-                    <span class="tag">SQL</span>
-                </div>
-                <h3>Kiln</h3>
-                <p>What it does and who it's for, in two short sentences.</p>
-                <a href="#" class="more">VIEW PROJECT →</a>
-            </article>
-            <article class="project">
-                <div class="thumb"><span>SCREENSHOT</span></div>
-                <div class="meta">
-                    <span class="tag">Python</span>
-                    <span class="tag">SQL</span>
-                </div>
-                <h3>project name</h3>
-                <p>What it does and who it's for, in two short sentences.</p>
-                <a href="#" class="more">VIEW PROJECT →</a>
-            </article>
-            <article class="project">
-                <div class="thumb"><span>SCREENSHOT</span></div>
-                <div class="meta">
-                    <span class="tag">Python</span>
-                    <span class="tag">SQL</span>
-                </div>
-                <h3>Home Assistant</h3>
-                <p>What it does and who it's for, in two short sentences.</p>
-                <a href="#" class="more">VIEW PROJECT →</a>
-            </article>
-            <article class="project">
-                <div class="thumb"><span>SCREENSHOT</span></div>
-                <div class="meta">
-                    <span class="tag">Python</span>
-                    <span class="tag">SQL</span>
-                </div>
-                <h3>Study Hub</h3>
-                <p>What it does and who it's for, in two short sentences.</p>
-                <a href="#" class="more">VIEW PROJECT →</a>
-            </article>
         </div>
+        <!-- Everything else: smaller tiles. -->
+        <section class="more-projects">
+            <div class="section-head"><span class="label">More projects</span><span class="label">04</span></div>
+            <div class="grid grid-small">
+                <article class="project">
+                    <div class="thumb"><span>SCREENSHOT</span></div>
+                    <div class="meta">
+                        <span class="tag">Python</span>
+                        <span class="tag">SQL</span>
+                    </div>
+                    <h3>Kiln</h3>
+                    <p>What it does and who it's for, in two short sentences.</p>
+                    <a href="#" class="more">VIEW PROJECT →</a>
+                </article>
+                <article class="project">
+                    <div class="thumb"><span>SCREENSHOT</span></div>
+                    <div class="meta">
+                        <span class="tag">Python</span>
+                        <span class="tag">SQL</span>
+                    </div>
+                    <h3>project name</h3>
+                    <p>What it does and who it's for, in two short sentences.</p>
+                    <a href="#" class="more">VIEW PROJECT →</a>
+                </article>
+                <article class="project">
+                    <div class="thumb"><span>SCREENSHOT</span></div>
+                    <div class="meta">
+                        <span class="tag">Python</span>
+                        <span class="tag">SQL</span>
+                    </div>
+                    <h3>Home Assistant</h3>
+                    <p>What it does and who it's for, in two short sentences.</p>
+                    <a href="#" class="more">VIEW PROJECT →</a>
+                </article>
+                <article class="project">
+                    <div class="thumb"><span>SCREENSHOT</span></div>
+                    <div class="meta">
+                        <span class="tag">Python</span>
+                        <span class="tag">SQL</span>
+                    </div>
+                    <h3>Study Hub</h3>
+                    <p>What it does and who it's for, in two short sentences.</p>
+                    <a href="#" class="more">VIEW PROJECT →</a>
+                </article>
+            </div>
+        </section>
     </main>
 
     <aside class="sidebar">
