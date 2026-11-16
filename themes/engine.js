@@ -129,6 +129,7 @@
         : el.dataset.href || hrefOf(el.matches('a') ? el : el.querySelector('a.more')),
       image: el.dataset.image || el.querySelector('img.thumb, .thumb img')?.getAttribute('src') || '',
       theme: el.dataset.themeChoice || '',
+      icon: el.dataset.icon || '',                       // <article class="project" data-icon="kiln">
       favourite: el.hasAttribute('data-favourite'),     // <article class="project" data-favourite>
     }));
 

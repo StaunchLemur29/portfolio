@@ -51,7 +51,7 @@ Until it has a `preview.webp`, those show its three swatch colours instead.
 | `site.label` | the small label above the heading, e.g. "code / 03" |
 | `site.title` | the page's `<h1>` |
 | `site.description` | the paragraph under the heading |
-| `site.items` | `[{ index, title, text, tags, href, image, theme, favourite }]`, one per project card |
+| `site.items` | `[{ index, title, text, tags, href, image, icon, theme, favourite }]`, one per project card |
 | `site.tags` | every tag on the page, no repeats |
 | `site.intro` | the sidebar intro text |
 | `site.links` | `[{ label, href }]` from the sidebar (GitHub, Email) |
@@ -98,6 +98,9 @@ Until it has a `preview.webp`, those show its three swatch colours instead.
   every theme automatically.
 - Mark a project as a favourite with `<article class="project" data-favourite>`. Themes get
   `item.favourite` (Frutiger 7 shows these in its Favourites folder).
+- Give a project its own icon with `<article class="project" data-icon="kiln">`. Themes get
+  `item.icon` and draw it in their own style (Frutiger 7 uses `themes/aero/icons/<name>.svg`,
+  Corporate has a line glyph, PF-01 turns it into one of its objects via `themes/pf-01/forms/<name>.svg`). Built in: `pitwall`, `kiln`, `paddock`.
 - A link to `#themes` (`<a href="#themes">`) opens the Themes picker from anywhere.
 
 ## Screenshots

@@ -127,7 +127,30 @@ html[data-site-theme="pf-01"][data-scheme="dark"] body { background: #000; }
 }
 
 .yz-item:hover .yz-object,
+.yz-item:hover .yz-form,
 .yz-item:hover .yz-photo { transform: scale(1.04); }
+
+/* a project with its own icon: the same soft object, cut to the project's shape
+   (forms/<name>.svg). The shadow sits on the wrapper so the mask doesn't clip it. */
+.yz-form {
+  display: grid;
+  width: 74%;
+  aspect-ratio: 1;
+  filter: drop-shadow(0 22px 14px rgb(0 0 0 / 0.2));
+  transition: transform 0.5s cubic-bezier(.2, .8, .2, 1);
+}
+.yz-form-body {
+  background:
+    radial-gradient(ellipse at 32% 24%, rgb(255 255 255 / 0.6), transparent 50%),
+    radial-gradient(ellipse at 70% 90%, rgb(0 0 0 / 0.18), transparent 60%),
+    var(--tone);
+  -webkit-mask: var(--form) center / contain no-repeat;
+  mask: var(--form) center / contain no-repeat;
+}
+.yz-form-pitwall { --form: url(forms/pitwall.svg); }
+.yz-form-kiln    { --form: url(forms/kiln.svg); }
+.yz-form-paddock { --form: url(forms/paddock.svg); }
+.yz-sway .yz-form { width: 80%; }
 
 .yz-code,
 .yz-name { transition: opacity 0.2s; }
