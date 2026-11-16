@@ -675,3 +675,5 @@ img.thumb {
   outline-offset: 2px;
 }
 .project:not(:has(.more)):hover { transform: none; }
+/* placeholder cards (link is just "#") don't get the stretched link */
+.project .more[href="#"]::after { content: none; }
