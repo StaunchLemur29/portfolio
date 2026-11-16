@@ -659,3 +659,19 @@ img.thumb {
 @media (max-width: 960px) {
   .theme-strip-body { grid-template-columns: 1fr; }
 }
+
+/* ---------- whole card is clickable ----------
+   The card's one link (.more) is stretched over the whole card, so clicking the
+   screenshot or title works too. Cards with no link stay still on hover. */
+.project { position: relative; }
+.project .more::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.project .more:focus-visible { outline: none; }
+.project:has(.more:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.project:not(:has(.more)):hover { transform: none; }
