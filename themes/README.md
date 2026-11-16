@@ -100,7 +100,7 @@ Until it has a `preview.webp`, those show its three swatch colours instead.
   `item.favourite` (Frutiger 7 shows these in its Favourites folder).
 - Give a project its own icon with `<article class="project" data-icon="kiln">`. Themes get
   `item.icon` and draw it in their own style (Frutiger 7 uses `themes/aero/icons/<name>.svg`,
-  Corporate has a line glyph). Built in: `pitwall`, `kiln`, `paddock`.
+  Corporate has a line glyph, PF-01 turns it into one of its objects via `themes/pf-01/forms/<name>.svg`). Built in: `pitwall`, `kiln`, `paddock`.
 - A link to `#themes` (`<a href="#themes">`) opens the Themes picker from anywhere.
 
 ## Screenshots

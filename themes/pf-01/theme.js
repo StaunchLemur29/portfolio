@@ -19,7 +19,12 @@
     return (word.slice(0, 2) || 'TF').toUpperCase();
   }
 
+  // Projects with their own icon (data-icon="...") become an object shaped like the
+  // project, in the same tones and light as the others, instead of a flat screenshot.
+  const FORMS = ['pitwall', 'kiln', 'paddock'];
+
   function object(item, i, site, api) {
+    if (FORMS.includes(item.icon)) return `<span class="yz-form" style="--tone:${TONES[i % TONES.length]}"><span class="yz-form-body yz-form-${item.icon}"></span></span>`;
     if (item.image) return `<img class="yz-photo" src="${api.esc(item.image)}" alt="">`;
     return `<span class="yz-object" style="--tone:${TONES[i % TONES.length]};--shape:${SHAPES[i % SHAPES.length]}"></span>`;
   }
