@@ -197,6 +197,429 @@
     destroy() { this.stop(); this.ctx?.close(); this.ctx = null; }
   }
 
+  // ======================= WALLPAPER =======================
+  // A painted landscape on a canvas: sky, clouds, hills, a lake that reflects
+  // them, and a grassy bank in front. Day: sun, light rays, glints on the water.
+  // Night: moon, stars and an aurora. Clouds drift, the water ripples and the
+  // grass sways; it all holds still for reduced motion and in previews.
+  // Layout uses a fixed seed, so the scene looks the same on every visit.
+  function startScene(canvas, api) {
+    const ctx = canvas.getContext('2d');
+    const html = document.documentElement;
+    const still = api.reducedMotion() || api.preview;
+    const PI = Math.PI;
+    const seeded = (s) => () => {
+      s = (s + 0x6d2b79f5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const layer = (w, h) => {
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.ceil(w * dpr));
+      c.height = Math.max(1, Math.ceil(h * dpr));
+      const x = c.getContext('2d');
+      x.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return [c, x];
+    };
+    const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+    let W = 0, H = 0, dpr = 1, night = false;
+    let hz = 0;            // horizon: where the lake starts
+    let sun = { x: 0, y: 0 };
+    let L = {};            // pre-drawn layers
+    let clouds = [], stars = [], blades = [], glints = [];
+    let frame = 0, last = 0, t = 0;
+
+    // ---- shapes (u = 0..1 across the screen) ----
+    const farRidge = (u) => hz - H * (0.058 + 0.026 * Math.sin(u * 4.6 + 1.3) + 0.014 * Math.sin(u * 10.3 + 0.4) + 0.006 * Math.sin(u * 23 + 2));
+    const midRidge = (u) => hz - H * (0.012 + 0.05 * (0.5 + 0.5 * Math.sin(u * 5.2 + 0.9)) ** 2.2 + 0.008 * Math.sin(u * 13 + 1));
+    const bankRidge = (u) => H * (0.775 + 0.155 * smooth(0, 0.9, u) - 0.03 * Math.max(0, (u - 0.85) / 0.15) ** 2 + 0.006 * Math.sin(u * 9 + 0.5));
+    const ridgePath = (c, fn, bottom) => {
+      c.beginPath();
+      c.moveTo(-2, bottom);
+      for (let x = -2; x <= W + 2; x += 4) c.lineTo(x, fn(x / W));
+      c.lineTo(W + 2, bottom);
+      c.closePath();
+    };
+    const ridgeLine = (c, fn, dy = 0) => {
+      c.beginPath();
+      for (let x = -2; x <= W + 2; x += 4) c[x === -2 ? 'moveTo' : 'lineTo'](x, fn(x / W) + dy);
+    };
+
+    // ---- one cumulus cloud, from layered noise ----
+    // A few soft blobs give the overall shape (domed top, flat base); noise breaks
+    // up the edge; lighting compares density toward the light with density here.
+    function makeCloud(w, h, rnd) {
+      const res = 0.7;                                     // drawn a bit smaller than shown; it's soft anyway
+      const cw = Math.max(8, Math.round(w * res)), ch = Math.max(8, Math.round(h * res));
+      const perm = new Uint8Array(512);
+      for (let i = 0; i < 256; i++) perm[i] = i;
+      for (let i = 255; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [perm[i], perm[j]] = [perm[j], perm[i]]; }
+      for (let i = 0; i < 256; i++) perm[i + 256] = perm[i];
+      const hash = (x, y) => perm[(perm[x & 255] + y) & 511] / 255;
+      const noise = (x, y) => {
+        const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+        const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+        const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
+        return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+      };
+      const fbm = (x, y) => { let s = 0, a = 0.5; for (let o = 0; o < 5; o++) { s += a * noise(x, y); x *= 2.03; y *= 2.03; a *= 0.5; } return s; };
+      const blobs = [];
+      const n = 4 + Math.floor(rnd() * 3);
+      for (let i = 0; i < n; i++) {
+        const u = 0.2 + 0.6 * (n === 1 ? 0.5 : i / (n - 1)) + (rnd() - 0.5) * 0.08;
+        const r = 0.16 + 0.2 * Math.sin(PI * u) ** 2 + rnd() * 0.06;
+        blobs.push({ x: u, y: 0.76 - r * (0.75 + rnd() * 0.25), r });
+      }
+      const aspect = w / h;
+      const density = (px, py) => {          // px, py in 0..1
+        let d = 0;
+        for (const b of blobs) {
+          const dx = (px - b.x) * aspect * 0.62, dy = py - b.y;
+          d = Math.max(d, 1 - Math.sqrt(dx * dx + dy * dy) / b.r);
+        }
+        d += (fbm(px * aspect * 2.2, py * 2.6) - 0.56) * 0.6;
+        d = Math.min(d, (0.8 - py) * 4);       // flat base
+        return d * smooth(0, 0.12, px) * smooth(1, 0.88, px) * smooth(0, 0.14, py);   // never touch the edges
+      };
+      const img = new ImageData(cw, ch);
+      const hi = night ? [150, 172, 205] : [255, 255, 255];
+      const lo = night ? [30, 44, 74] : [150, 176, 210];
+      const opacity = night ? 0.55 : 1;
+      for (let y = 0; y < ch; y++) {
+        for (let x = 0; x < cw; x++) {
+          const px = x / cw, py = y / ch;
+          const d = density(px, py);
+          if (d <= 0) continue;
+          const toward = density(px + 0.035, py - 0.07);      // sun is up and to the right
+          let lit = 1 - Math.max(0, toward - d * 0.6) * 1.6;
+          lit -= smooth(0.35, 0.8, py) * 0.35;                // shaded underside
+          lit = Math.min(1, Math.max(0, lit));
+          const a = smooth(0, 0.22, d) * opacity;
+          const i = (y * cw + x) * 4;
+          img.data[i] = lo[0] + (hi[0] - lo[0]) * lit;
+          img.data[i + 1] = lo[1] + (hi[1] - lo[1]) * lit;
+          img.data[i + 2] = lo[2] + (hi[2] - lo[2]) * lit;
+          img.data[i + 3] = a * 255;
+        }
+      }
+      const c = document.createElement('canvas');
+      c.width = cw; c.height = ch;
+      c.getContext('2d').putImageData(img, 0, 0);
+      return c;
+    }
+
+    // ---- everything that only changes on resize or day/night ----
+    function build() {
+      dpr = Math.min(1.5, devicePixelRatio || 1);
+      W = canvas.clientWidth || innerWidth;
+      H = canvas.clientHeight || innerHeight;
+      canvas.width = Math.ceil(W * dpr);
+      canvas.height = Math.ceil(H * dpr);
+      night = html.dataset.scheme === 'dark';
+      hz = Math.round(H * 0.66);
+      sun = { x: W * 0.74, y: H * 0.16 };
+      const rnd = seeded(night ? 11 : 7);
+      const k = Math.min(1.4, Math.max(0.6, Math.min(W, H) / 800));   // detail scale
+
+      // sky
+      const [sky, s] = layer(W, hz);
+      let g = s.createLinearGradient(0, 0, 0, hz);
+      if (night) {
+        g.addColorStop(0, '#02060f'); g.addColorStop(0.45, '#061a33'); g.addColorStop(0.8, '#0a3452'); g.addColorStop(1, '#0f4a60');
+      } else {
+        g.addColorStop(0, '#0b67c9'); g.addColorStop(0.3, '#2a92e3'); g.addColorStop(0.62, '#79c6f3'); g.addColorStop(0.9, '#c6ecfd'); g.addColorStop(1, '#e4f7ff');
+      }
+      s.fillStyle = g;
+      s.fillRect(0, 0, W, hz);
+      const R = Math.max(W, H);
+      if (night) {
+        const mr = 10 + 0.022 * Math.min(W, H);
+        g = s.createRadialGradient(sun.x, sun.y, mr, sun.x, sun.y, mr * 9);
+        g.addColorStop(0, 'rgba(170,205,255,0.22)'); g.addColorStop(1, 'rgba(170,205,255,0)');
+        s.fillStyle = g; s.fillRect(0, 0, W, hz);
+        g = s.createRadialGradient(sun.x + mr * 0.3, sun.y - mr * 0.3, mr * 0.1, sun.x, sun.y, mr);
+        g.addColorStop(0, '#fbfdff'); g.addColorStop(0.7, '#e2eaf3'); g.addColorStop(1, '#c3d0de');
+        s.fillStyle = g; s.beginPath(); s.arc(sun.x, sun.y, mr, 0, PI * 2); s.fill();
+        s.fillStyle = 'rgba(140,155,178,0.32)';
+        for (const [dx, dy, rr] of [[-0.3, -0.15, 0.28], [0.15, 0.25, 0.22], [0.3, -0.3, 0.14], [-0.1, 0.45, 0.12]]) {
+          s.beginPath(); s.ellipse(sun.x + dx * mr, sun.y + dy * mr, rr * mr, rr * mr * 0.8, 0.4, 0, PI * 2); s.fill();
+        }
+      } else {
+        g = s.createRadialGradient(sun.x, sun.y, 0, sun.x, sun.y, R * 0.7);
+        g.addColorStop(0, 'rgba(255,255,250,1)'); g.addColorStop(0.03, 'rgba(255,255,245,0.95)');
+        g.addColorStop(0.08, 'rgba(255,252,235,0.45)'); g.addColorStop(0.25, 'rgba(230,246,255,0.18)'); g.addColorStop(1, 'rgba(230,246,255,0)');
+        s.fillStyle = g; s.fillRect(0, 0, W, hz);
+      }
+      L.sky = sky;
+
+      // light rays (day): faint, drawn small so they come out soft, turning very slowly
+      if (!night) {
+        const size = Math.hypot(W, H) * 1.2;
+        const rc = document.createElement('canvas');
+        rc.width = rc.height = 160;
+        const r = rc.getContext('2d');
+        r.translate(80, 80);
+        g = r.createRadialGradient(0, 0, 0, 0, 0, 80);
+        g.addColorStop(0, 'rgba(255,255,255,0.5)'); g.addColorStop(0.3, 'rgba(255,255,255,0.14)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+        r.fillStyle = g;
+        for (let a = rnd(); a < PI * 2;) {
+          const wdt = 0.05 + rnd() * 0.1;
+          r.beginPath(); r.moveTo(0, 0); r.arc(0, 0, 80, a, a + wdt); r.closePath(); r.fill();
+          a += wdt + 0.2 + rnd() * 0.35;
+        }
+        L.rays = rc; L.raySize = size;
+      } else L.rays = null;
+
+      // land above the lake: far range, nearer rolling hills, mist
+      const [land, l] = layer(W, hz);
+      ridgePath(l, farRidge, hz);
+      g = l.createLinearGradient(0, hz - H * 0.11, 0, hz);
+      g.addColorStop(0, night ? '#0c2742' : '#6aa9cf'); g.addColorStop(1, night ? '#123a55' : '#a7d6ea');
+      l.fillStyle = g; l.fill();
+      ridgePath(l, midRidge, hz);
+      g = l.createLinearGradient(0, hz - H * 0.065, 0, hz);
+      g.addColorStop(0, night ? '#0b2e2e' : '#4aa63f'); g.addColorStop(0.65, night ? '#0e3a39' : '#6dbb55'); g.addColorStop(1, night ? '#12463f' : '#8fcd78');
+      l.fillStyle = g; l.fill();
+      ridgeLine(l, midRidge);
+      l.strokeStyle = night ? 'rgba(120,255,210,0.18)' : 'rgba(255,255,255,0.4)';
+      l.lineWidth = 1.2; l.stroke();
+      g = l.createLinearGradient(0, hz - H * 0.035, 0, hz);
+      g.addColorStop(0, night ? 'rgba(60,150,170,0)' : 'rgba(235,250,255,0)');
+      g.addColorStop(1, night ? 'rgba(60,150,170,0.12)' : 'rgba(235,250,255,0.2)');
+      l.fillStyle = g; l.fillRect(0, hz - H * 0.035, W, H * 0.035);
+      L.land = land;
+
+      // the lake's own colour, laid over the reflection (deeper = more water, less mirror)
+      const lakeH = H - hz;
+      const [tint, tc] = layer(W, lakeH);
+      g = tc.createLinearGradient(0, 0, 0, lakeH);
+      if (night) { g.addColorStop(0, 'rgba(10,40,70,0.15)'); g.addColorStop(1, 'rgba(2,12,26,0.65)'); }
+      else { g.addColorStop(0, 'rgba(210,240,255,0.12)'); g.addColorStop(0.5, 'rgba(40,140,190,0.28)'); g.addColorStop(1, 'rgba(8,80,130,0.55)'); }
+      tc.fillStyle = g; tc.fillRect(0, 0, W, lakeH);
+      g = tc.createLinearGradient(sun.x - W * 0.12, 0, sun.x + W * 0.12, 0);   // bright column under the sun / moon
+      const col = night ? '190,215,255' : '255,255,240';
+      g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(0.5, `rgba(${col},${night ? 0.1 : 0.22})`); g.addColorStop(1, `rgba(${col},0)`);
+      tc.globalCompositeOperation = 'lighter';
+      tc.fillStyle = g; tc.fillRect(0, 0, W, lakeH);
+      tc.globalCompositeOperation = 'source-over';
+      tc.fillStyle = night ? 'rgba(150,220,255,0.1)' : 'rgba(255,255,255,0.18)';
+      tc.fillRect(0, 0, W, 1);                                                 // the far shoreline
+      L.tint = tint;
+      L.up = layer(W, hz);
+
+      // the grassy bank in front
+      const [bank, b] = layer(W, H);
+      const top = H * 0.765;
+      ridgePath(b, bankRidge, H + 2);
+      g = b.createLinearGradient(0, top, 0, H);
+      if (night) { g.addColorStop(0, '#1d5a36'); g.addColorStop(0.3, '#123f26'); g.addColorStop(1, '#051a10'); }
+      else { g.addColorStop(0, '#a3ea66'); g.addColorStop(0.18, '#62c63f'); g.addColorStop(0.6, '#33952a'); g.addColorStop(1, '#1b6a1c'); }
+      b.fillStyle = g; b.fill();
+      b.save(); b.clip();
+      g = b.createRadialGradient(W * 0.18, top + H * 0.02, 0, W * 0.18, top + H * 0.02, W * 0.45);
+      g.addColorStop(0, night ? 'rgba(120,255,210,0.08)' : 'rgba(255,255,255,0.35)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      b.fillStyle = g; b.fillRect(0, top, W, H - top);
+      ridgeLine(b, bankRidge, 5);                                              // soft gloss just under the edge
+      b.strokeStyle = night ? 'rgba(140,255,210,0.07)' : 'rgba(255,255,255,0.22)';
+      b.lineWidth = 7; b.stroke();
+      b.restore();
+      ridgeLine(b, bankRidge);
+      b.strokeStyle = night ? 'rgba(150,255,215,0.4)' : 'rgba(255,255,255,0.85)';
+      b.lineWidth = 1.6; b.stroke();
+      L.bank = bank;
+
+      // grass along the bank's edge, thicker on the left
+      const greens = night ? ['#0d3a23', '#124a2d', '#0a2e1c', '#175a37', '#1c6640'] : ['#3b9a2b', '#4fb337', '#2d8724', '#68c745', '#86d858'];
+      blades = [];
+      for (let x = -6; x < W + 6;) {
+        const u = x / W;
+        const tall = 1.25 - u * 0.55;                                          // taller on the left
+        const n = 3 + Math.floor(rnd() * 7);                                   // a clump fanning out
+        const lean0 = (rnd() - 0.4) * 0.5;
+        for (let i = 0; i < n; i++) {
+          const f = n === 1 ? 0 : i / (n - 1) - 0.5;
+          const h = (5 + rnd() ** 1.6 * 24) * tall * k * (1 - Math.abs(f) * 0.5);
+          const bx = x + f * 6 * k + (rnd() - 0.5) * 2;
+          blades.push({ x: bx, y: bankRidge(bx / W) + 2 + rnd() * 2, h, w: (0.9 + rnd() * 1.3) * k, lean: (lean0 + f * 0.9) * h * 0.6, c: greens[Math.floor(rnd() * greens.length)], ph: rnd() * 6 });
+        }
+        x += (4 + rnd() * 10) * k * (1 + u * 1.5);                             // sparser to the right
+      }
+      blades.sort((a, b) => a.c < b.c ? -1 : 1);
+
+      // clouds: big and high, smaller toward the horizon
+      clouds = [];
+      const count = night ? 3 : 6;
+      for (let i = 0; i < count; i++) {
+        const depth = i / (count - 1);                                         // 0 = near/high, 1 = far/low
+        const w = Math.min(560, Math.max(120, W * (0.34 - depth * 0.22) * (0.8 + rnd() * 0.4)));
+        const h = w * (night ? 0.36 : 0.5);
+        let cx = rnd() * (W + w) - w;
+        if (!night && Math.abs(cx + w / 2 - sun.x) < w * 0.7 + 60 && depth < 0.5) cx = (cx + W * 0.45) % W - w * 0.5;
+        clouds.push({
+          img: makeCloud(w, h, rnd), w, h,
+          x: cx,
+          y: hz * (0.06 + depth * 0.6) - h * 0.5 + (rnd() - 0.5) * hz * 0.06,
+          v: (7 - depth * 5) * (0.8 + rnd() * 0.4),
+          a: 1 - depth * 0.2,
+        });
+      }
+      clouds.sort((a, b) => a.w - b.w);
+
+      // glints on the water under the sun / moon
+      glints = [];
+      for (let i = 0; i < (night ? 50 : 90); i++) {
+        const d = rnd() ** 1.3;
+        glints.push({ d, o: (rnd() - 0.5) * (0.04 + d * 0.32), w: 2 + rnd() * 6 * (0.4 + d), sp: 1.5 + rnd() * 3, ph: rnd() * 6 });
+      }
+
+      // stars and aurora (night)
+      stars = [];
+      if (night) {
+        for (let i = 0; i < 260; i++) {
+          const y = hz * 0.92 * rnd() ** 1.7;
+          stars.push({ x: rnd() * W, y, s: 0.5 + rnd() ** 3 * 1.4, a: (0.25 + rnd() * 0.75) * (1 - y / hz), tw: rnd() < 0.35 ? 1 + rnd() * 2 : 0, ph: rnd() * 6 });
+        }
+        const sp = document.createElement('canvas');
+        sp.width = 1; sp.height = 128;
+        const sx = sp.getContext('2d');
+        g = sx.createLinearGradient(0, 0, 0, 128);
+        g.addColorStop(0, 'rgba(150,90,255,0)');
+        g.addColorStop(0.35, 'rgba(140,110,255,0.25)');
+        g.addColorStop(0.7, 'rgba(70,255,180,0.6)');
+        g.addColorStop(0.93, 'rgba(150,255,200,1)');
+        g.addColorStop(1, 'rgba(150,255,200,0)');
+        sx.fillStyle = g; sx.fillRect(0, 0, 1, 128);
+        L.auroraSprite = sp;
+        const aw = Math.ceil(W / 4), ah = Math.ceil(hz / 4);
+        L.aurora = document.createElement('canvas');
+        L.aurora.width = aw; L.aurora.height = ah;
+      }
+    }
+
+    function drawAurora() {
+      const c = L.aurora, a = c.getContext('2d');
+      const aw = c.width, ah = c.height;
+      a.clearRect(0, 0, aw, ah);
+      a.globalCompositeOperation = 'lighter';
+      const curtains = [{ base: 0.52, hh: 0.42, p: 0, al: 0.9 }, { base: 0.38, hh: 0.3, p: 2.1, al: 0.55 }];
+      for (const cu of curtains) {
+        for (let x = 0; x < aw; x++) {
+          const u = x / aw;
+          const env = smooth(0.02, 0.3, u) * (1 - smooth(0.5, 0.85, u));
+          if (env <= 0) continue;
+          let i = (0.5 + 0.5 * Math.sin(u * 7 + t * 0.12 + cu.p)) * (0.55 + 0.45 * Math.sin(u * 19 - t * 0.21 + cu.p));
+          i *= 0.7 + 0.3 * Math.sin(u * 95 + t * 0.5 + cu.p);                  // fine vertical rays
+          i = Math.max(0, i) ** 1.3 * env * cu.al;
+          const base = ah * (cu.base + 0.07 * Math.sin(u * 5 + t * 0.09 + cu.p) + 0.03 * Math.sin(u * 13 - t * 0.17));
+          const h = ah * cu.hh * (0.65 + 0.35 * Math.sin(u * 3.3 + t * 0.07 + cu.p));
+          a.globalAlpha = i;
+          a.drawImage(L.auroraSprite, x, base - h, 1, h);
+        }
+      }
+      a.globalAlpha = 1;
+      a.globalCompositeOperation = 'source-over';
+    }
+
+    function draw() {
+      const [up, u] = L.up;
+      // 1. everything above the lake, into its own layer (the lake reflects it)
+      u.globalCompositeOperation = 'source-over';
+      u.drawImage(L.sky, 0, 0, W, hz);
+      if (night) {
+        u.fillStyle = '#fff';
+        for (const s of stars) {
+          u.globalAlpha = s.tw ? s.a * (0.55 + 0.45 * Math.sin(t * s.tw + s.ph)) : s.a;
+          u.fillRect(s.x, s.y, s.s, s.s);
+        }
+        u.globalAlpha = 1;
+        drawAurora();
+        u.globalCompositeOperation = 'lighter';
+        u.drawImage(L.aurora, 0, 0, W, hz);
+        u.globalCompositeOperation = 'source-over';
+      } else if (L.rays) {
+        u.save();
+        u.globalCompositeOperation = 'lighter';
+        u.globalAlpha = 0.32 + 0.08 * Math.sin(t * 0.25);
+        u.translate(sun.x, sun.y);
+        u.rotate(t * 0.006);
+        u.drawImage(L.rays, -L.raySize / 2, -L.raySize / 2, L.raySize, L.raySize);
+        u.restore();
+      }
+      for (const c of clouds) {
+        u.globalAlpha = c.a;
+        u.drawImage(c.img, c.x, c.y, c.w, c.h);
+      }
+      u.globalAlpha = 1;
+      u.drawImage(L.land, 0, 0, W, hz);
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(up, 0, 0);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // 2. the lake: the scene above, mirrored row by row with a ripple
+      const lakeH = H - hz;
+      const row = 1;
+      for (let y = hz; y < H; y += row) {
+        const d = y - hz;
+        const depth = d / lakeH;
+        const wave = Math.sin(d * 0.21 - t * 1.3) * 0.5 + Math.sin(d * 0.067 + t * 0.6) * 0.3 + Math.sin(d * 0.53 - t * 2.1) * 0.2;
+        const xo = wave * (0.3 + depth * 3.2);
+        const sy = Math.max(0, hz - d - 1 + Math.sin(d * 0.37 + t * 1.7) * depth * 1.5);
+        ctx.drawImage(up, 0, sy * dpr, up.width, row * dpr, xo - 6, y, W + 12, row + 0.5);
+      }
+      ctx.drawImage(L.tint, 0, hz, W, lakeH);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = night ? 'rgb(200,225,255)' : '#fff';
+      for (const g of glints) {
+        const a = Math.max(0, Math.sin(t * g.sp + g.ph)) ** 6 * (still ? 0.6 : 1);
+        if (a < 0.02) continue;
+        ctx.globalAlpha = a * (night ? 0.55 : 0.9);
+        const y = hz + 2 + g.d * lakeH * 0.95;
+        ctx.fillRect(sun.x + g.o * W - g.w / 2, y, g.w, 1 + g.d);
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+
+      // 3. the bank and its grass
+      ctx.drawImage(L.bank, 0, 0, W, H);
+      let color = null;
+      for (const b of blades) {
+        const sway = Math.sin(t * 1.1 + b.x * 0.012 + b.ph * 0.3) * b.h * 0.12;
+        const tx = b.x + b.lean + sway, ty = b.y - b.h;
+        if (b.c !== color) { ctx.fillStyle = color = b.c; }
+        ctx.beginPath();
+        ctx.moveTo(b.x - b.w, b.y);
+        ctx.quadraticCurveTo(b.x - b.w * 0.2 + (b.lean + sway) * 0.4, b.y - b.h * 0.55, tx, ty);
+        ctx.quadraticCurveTo(b.x + b.w * 0.4 + (b.lean + sway) * 0.4, b.y - b.h * 0.55, b.x + b.w, b.y);
+        ctx.fill();
+      }
+    }
+
+    function tick(now) {
+      frame = requestAnimationFrame(tick);
+      if (document.hidden) { last = now; return; }
+      const dt = Math.min(0.1, (now - (last || now)) / 1000);
+      if (now - last < 33) return;                                             // ~30 fps is plenty for this
+      last = now;
+      t += dt;
+      for (const c of clouds) { c.x += c.v * dt; if (c.x > W) c.x = -c.w; }
+      draw();
+    }
+
+    const rebuild = () => { build(); draw(); };
+    let pending = 0;
+    const ro = new ResizeObserver(() => { clearTimeout(pending); pending = setTimeout(rebuild, W ? 120 : 0); });
+    ro.observe(canvas);
+    const mo = new MutationObserver(() => { if ((html.dataset.scheme === 'dark') !== night) rebuild(); });
+    mo.observe(html, { attributes: true, attributeFilter: ['data-scheme'] });
+    t = 40;                                                                    // start mid-motion, not on a frozen pose
+    rebuild();
+    if (!still) frame = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(frame); clearTimeout(pending); ro.disconnect(); mo.disconnect(); };
+  }
+
   // ======================= BUBBLES =======================
   function startBubbles(canvas, api) {
     const ctx = canvas.getContext('2d');
@@ -308,7 +731,7 @@
     const apps = pinned(site);
     return `
       <div class="w7">
-        <div class="w7-wall" aria-hidden="true"><i class="w7-sun"></i><i class="w7-ribbon r1"></i><i class="w7-ribbon r2"></i><i class="w7-hill"></i></div>
+        <div class="w7-wall" aria-hidden="true"><canvas class="w7-scene"></canvas></div>
         <canvas class="w7-bubbles" aria-hidden="true"></canvas>
 
         <nav class="w7-desktop" aria-label="Desktop">
@@ -1034,6 +1457,7 @@
         root, site, api, wins: {}, z: 10, active: null,
         music: new AeroMusic(),
         musicWanted: !api.preview && musicPref !== 'off',
+        stopScene: startScene(root.querySelector('.w7-scene'), api),
         stopBubbles: startBubbles(root.querySelector('.w7-bubbles'), api),
         clock: setInterval(tickClock, 15000),
       };
@@ -1160,6 +1584,7 @@
     unmount() {
       if (!w) return;
       w.music.destroy();
+      w.stopScene();
       w.stopBubbles();
       clearInterval(w.clock);
       document.removeEventListener('pointerdown', w.unlock);
