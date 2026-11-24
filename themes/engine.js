@@ -282,11 +282,13 @@
 
 
   // ---------- 7. The Themes popup ----------
-  // Built like a little piece of hardware: a screen that previews the theme
-  // under your cursor, and eight keys (Creative on top, Business below) with an
-  // orange light on the one in use. Number keys 1-8 pick a theme straight away.
-  // Screenshots only load when a key is hovered or focused.
+  // Styled like the rest of the original site: a flat panel with a screenshot
+  // of the theme under your cursor, then a plain numbered list (Creative, then
+  // Business). The theme in use gets an orange number and a dot.
+  // Number keys 1-8 pick a theme straight away; up/down move through the list.
+  // Screenshots only load when a row is hovered or focused.
   const pad = (n) => String(n).padStart(2, '0');
+  const groups = [...new Set(THEMES.map((t) => t.group))];
   const popover = document.createElement('div');
   popover.id = 'theme-popover';
   popover.className = 'theme-popover';
@@ -294,50 +296,44 @@
   popover.setAttribute('role', 'dialog');
   popover.setAttribute('aria-label', 'Themes');
   popover.innerHTML = `
-    <div class="tp-screen">
+    <div class="tp-shot">
       ${THEMES.map((t) => `<img alt="" data-show="${t.id}" data-src="${thumb(t.id)}" style="background:${swatchCSS(t)}">`).join('')}
-      <div class="tp-readout">
-        <span class="tp-readnum"></span>
-        <span class="tp-readtext"><b class="tp-readname"></b><span class="tp-readdesc"></span></span>
-        <span class="tp-readstate">IN USE</span>
-      </div>
     </div>
-    <div class="tp-keys">
-      ${THEMES.map((t, i) => `
-        <button type="button" class="tp-key" data-theme-choice="${t.id}" data-show="${t.id}" aria-keyshortcuts="${i + 1}">
-          <span class="tp-led" aria-hidden="true"></span>
-          <span class="tp-keynum">${pad(i + 1)}</span>
-          <span class="tp-keyname">${t.name}</span>
-        </button>`).join('')}
-    </div>
-    <p class="tp-hint"><span><kbd>1</kbd>–<kbd>8</kbd> pick</span><span><kbd>esc</kbd> close</span><span>reload = original</span></p>`;
+    <p class="tp-caption"><span class="tp-capname"></span> <span class="tp-capdesc"></span></p>
+    <div class="tp-list">
+      ${groups.map((g) => `
+        <p class="tp-group">${g}</p>
+        ${THEMES.map((t, i) => (t.group !== g ? '' : `
+          <button type="button" class="tp-key" data-theme-choice="${t.id}" data-show="${t.id}" aria-keyshortcuts="${i + 1}">
+            <span class="tp-keynum">${pad(i + 1)}</span>
+            <span class="tp-keyname">${t.name}</span>
+          </button>`)).join('')}`).join('')}
+    </div>`;
   document.body.append(popover);
 
-  // show a theme on the little screen
+  // show a theme's screenshot and caption
   function preview(id) {
     const t = findTheme(id);
-    const n = THEMES.indexOf(t) + 1;
-    popover.querySelectorAll('.tp-screen img').forEach((img) => {
+    popover.querySelectorAll('.tp-shot img').forEach((img) => {
       const on = img.dataset.show === id;
       if (on && !img.getAttribute('src')) img.src = img.dataset.src;
       img.classList.toggle('is-on', on);
     });
-    popover.querySelector('.tp-readnum').textContent = pad(n);
-    popover.querySelector('.tp-readname').textContent = t.name;
-    popover.querySelector('.tp-readdesc').textContent = t.short;
-    popover.querySelector('.tp-readstate').hidden = id !== (current?.id || 'original');
+    popover.querySelector('.tp-capname').textContent = t.name;
+    popover.querySelector('.tp-capdesc').textContent = t.short;
+    keys().forEach((k) => k.classList.toggle('is-showing', k.dataset.show === id));
   }
   const previewCurrent = () => preview(current?.id || 'original');
   const keys = () => [...popover.querySelectorAll('.tp-key')];
 
   popover.addEventListener('pointerover', (e) => { const k = e.target.closest('.tp-key'); if (k) preview(k.dataset.show); });
   popover.addEventListener('focusin', (e) => { const k = e.target.closest('.tp-key'); if (k) preview(k.dataset.show); });
-  popover.querySelector('.tp-keys').addEventListener('pointerleave', () => {
+  popover.querySelector('.tp-list').addEventListener('pointerleave', () => {
     const focused = document.activeElement?.closest?.('.tp-key');
     focused ? preview(focused.dataset.show) : previewCurrent();
   });
 
-  // number keys pick; arrow keys move around the 4 x 2 grid
+  // number keys pick; arrow keys move up and down the list
   popover.addEventListener('keydown', (event) => {
     if (/^[1-9]$/.test(event.key) && THEMES[event.key - 1]) {
       event.preventDefault();
@@ -345,7 +341,7 @@
       chooseTheme(THEMES[event.key - 1].id);
       return;
     }
-    const move = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 4, ArrowUp: -4 }[event.key];
+    const move = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
     if (!move) return;
     event.preventDefault();
     const list = keys();

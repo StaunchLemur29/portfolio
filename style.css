@@ -360,13 +360,14 @@ img.thumb {
 
 
 /* ---------- 6. The Themes popup ----------
-   Styled like a small piece of hardware: a screen and eight keys.
+   Drawn like the rest of the original site: flat panel, 1px line, mono type,
+   uppercase labels, orange only for the theme in use and on hover.
    It keeps its own copy of the Original colours so it looks the same
    over every theme that uses it. */
 .theme-popover {
-  --tp-body:   light-dark(#dedcd6, #232321);
-  --tp-key:    light-dark(#f4f3ef, #34332f);
-  --tp-key-lo: light-dark(#c9c7c0, #151514);
+  --tp-bg:     light-dark(#f6f5f2, #1d1d1b);
+  --tp-well:   light-dark(#ecebe7, #141413);
+  --tp-line:   light-dark(#d3d1cb, #33322f);
   --tp-ink:    light-dark(#161616, #ecebe7);
   --tp-muted:  light-dark(#77756f, #8f8d86);
   --tp-accent: light-dark(#ff4f00, #ff6a26);
@@ -374,20 +375,17 @@ img.thumb {
   position: fixed;
   inset: 0;
   margin: auto;
-  width: min(392px, calc(100vw - 24px));
+  width: min(320px, calc(100vw - 24px));
   height: fit-content;
   max-height: calc(100dvh - 24px);
   overflow: auto;
   padding: 12px;
   font: 12px/1.4 "JetBrains Mono", ui-monospace, monospace;
   color: var(--tp-ink);
-  background: var(--tp-body);
-  border: 0;
-  border-radius: 10px;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.5),
-    inset 0 -1px 0 rgb(0 0 0 / 0.08),
-    0 24px 60px -16px rgb(0 0 0 / 0.45);
+  background: var(--tp-bg);
+  border: 1px solid var(--tp-line);
+  border-radius: 3px;
+  box-shadow: 0 12px 32px -16px rgb(0 0 0 / 0.3);
   text-align: left;
   text-transform: none;
   letter-spacing: normal;
@@ -402,149 +400,93 @@ img.thumb {
 .no-popover .theme-popover { display: none; z-index: 10000; }
 .no-popover .theme-popover.is-open { display: block; }
 
-/* the screen */
-.tp-screen {
+/* the screenshot, framed like a project card's thumbnail */
+.tp-shot {
   position: relative;
   aspect-ratio: 16 / 10;
   overflow: hidden;
-  background: #0d0d0c;
-  border-radius: 5px;
-  box-shadow: inset 0 0 0 5px #0d0d0c, inset 0 2px 6px rgb(0 0 0 / 0.6);
+  background-color: var(--tp-well);
+  background-image: radial-gradient(var(--tp-line) 1.2px, transparent 1.2px);
+  background-size: 10px 10px;
+  border-radius: 3px;
 }
 
-.tp-screen img {
+.tp-shot img {
   position: absolute;
-  inset: 5px 5px 34px;
-  width: calc(100% - 10px);
-  height: calc(100% - 39px);
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   object-position: top;
-  border-radius: 2px;
   opacity: 0;
   transition: opacity 0.15s;
 }
-.tp-screen img.is-on { opacity: 1; }
+.tp-shot img.is-on { opacity: 1; }
 
-/* the readout under the picture: number, name, one line, IN USE */
-.tp-readout {
-  position: absolute;
-  left: 5px;
-  right: 5px;
-  bottom: 5px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 8px;
-  color: #ecebe7;
+/* name + one line under the picture */
+.tp-caption {
+  margin: 8px 0 0;
+  min-height: 2.8em;
+  font-size: 12px;
+  color: var(--tp-muted);
 }
+.tp-capname { color: var(--tp-ink); }
 
-.tp-readnum {
-  font: 900 18px/1 "Doto", monospace;
-  color: var(--tp-accent);
-}
-
-.tp-readtext {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-}
-.tp-readname { font-weight: 700; }
-.tp-readdesc { overflow: hidden; text-overflow: ellipsis; color: #8f8d86; font-size: 11px; }
-
-.tp-readstate {
-  margin-left: auto;
-  flex: none;
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  color: var(--tp-accent);
-}
-.tp-readstate[hidden] { display: none; }
-
-/* the keys: Creative on the top row, Business underneath */
-.tp-keys {
+/* the list */
+.tp-list {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 12px;
+  margin-top: 4px;
 }
+
+.tp-group {
+  margin: 12px 0 4px;
+  padding-bottom: 6px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tp-muted);
+  border-bottom: 1px solid var(--tp-line);
+}
+.tp-group:first-child { margin-top: 4px; }
 
 .tp-key {
-  position: relative;
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 10px;
-  height: 66px;
-  padding: 8px;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  padding: 5px 0;
   font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: inherit;
   text-align: left;
-  background: var(--tp-key);
+  background: none;
   border: 0;
-  border-radius: 5px;
-  box-shadow: 0 2px 0 var(--tp-key-lo), 0 3px 6px rgb(0 0 0 / 0.12);
   cursor: pointer;
-  transition: transform 0.06s, box-shadow 0.06s, background 0.15s;
+  transition: color 0.15s;
 }
 
-.tp-key:hover { background: color-mix(in srgb, var(--tp-key) 92%, var(--tp-ink)); }
-.tp-key:active { transform: translateY(2px); box-shadow: 0 0 0 var(--tp-key-lo), 0 1px 2px rgb(0 0 0 / 0.12); }
+.tp-key:hover,
+.tp-key.is-showing { color: var(--tp-accent); }
 .tp-key:focus-visible { outline: 2px solid var(--tp-accent); outline-offset: 2px; }
 
 .tp-keynum {
-  font: 900 16px/1 "Doto", monospace;
+  font-size: 11px;
   color: var(--tp-muted);
 }
 
-.tp-keyname {
-  overflow: hidden;
-  font-size: 9.5px;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-/* the little light, lit on the theme in use */
-.tp-led {
-  position: absolute;
-  top: 9px;
-  right: 9px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--tp-key-lo);
-}
-.tp-key[aria-pressed="true"] .tp-led {
-  background: var(--tp-accent);
-  box-shadow: 0 0 6px var(--tp-accent);
-}
+/* the theme in use: orange number and a dot */
 .tp-key[aria-pressed="true"] .tp-keynum { color: var(--tp-accent); }
-
-.tp-hint {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  margin: 12px 2px 0;
-  font-size: 10px;
-  color: var(--tp-muted);
-}
-
-.tp-hint kbd {
-  padding: 0 4px;
-  font: inherit;
-  color: var(--tp-ink);
-  background: var(--tp-key);
-  border-radius: 3px;
-  box-shadow: 0 1px 0 var(--tp-key-lo);
+.tp-key[aria-pressed="true"] .tp-keyname::after {
+  content: " \25CF";
+  color: var(--tp-accent);
+  font-size: 9px;
+  vertical-align: 1px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tp-screen img, .tp-key { transition: none; }
+  .tp-shot img, .tp-key { transition: none; }
 }
 
 
