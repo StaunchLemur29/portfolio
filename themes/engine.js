@@ -284,7 +284,7 @@
   // ---------- 7. The Themes popup ----------
   // Styled like the rest of the original site: a flat panel with a screenshot
   // of the theme under your cursor, then a plain numbered list (Creative, then
-  // Business). The theme in use gets an orange number and a dot.
+  // Business). The theme in use is shown in bold.
   // Number keys 1-8 pick a theme straight away; up/down move through the list.
   // Screenshots only load when a row is hovered or focused.
   const pad = (n) => String(n).padStart(2, '0');
@@ -321,7 +321,6 @@
     });
     popover.querySelector('.tp-capname').textContent = t.name;
     popover.querySelector('.tp-capdesc').textContent = t.short;
-    keys().forEach((k) => k.classList.toggle('is-showing', k.dataset.show === id));
   }
   const previewCurrent = () => preview(current?.id || 'original');
   const keys = () => [...popover.querySelectorAll('.tp-key')];

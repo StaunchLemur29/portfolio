@@ -361,7 +361,7 @@ img.thumb {
 
 /* ---------- 6. The Themes popup ----------
    Drawn like the rest of the original site: flat panel, 1px line, mono type,
-   uppercase labels, orange only for the theme in use and on hover.
+   uppercase labels, orange only on hover; the theme in use is bold.
    It keeps its own copy of the Original colours so it looks the same
    over every theme that uses it. */
 .theme-popover {
@@ -467,8 +467,7 @@ img.thumb {
   transition: color 0.15s;
 }
 
-.tp-key:hover,
-.tp-key.is-showing { color: var(--tp-accent); }
+.tp-key:hover { color: var(--tp-accent); }
 .tp-key:focus-visible { outline: 2px solid var(--tp-accent); outline-offset: 2px; }
 
 .tp-keynum {
@@ -476,14 +475,9 @@ img.thumb {
   color: var(--tp-muted);
 }
 
-/* the theme in use: orange number and a dot */
-.tp-key[aria-pressed="true"] .tp-keynum { color: var(--tp-accent); }
-.tp-key[aria-pressed="true"] .tp-keyname::after {
-  content: " \25CF";
-  color: var(--tp-accent);
-  font-size: 9px;
-  vertical-align: 1px;
-}
+/* the theme in use: bold, number in full ink */
+.tp-key[aria-pressed="true"] { font-weight: 700; }
+.tp-key[aria-pressed="true"] .tp-keynum { color: var(--tp-ink); }
 
 @media (prefers-reduced-motion: reduce) {
   .tp-shot img, .tp-key { transition: none; }
