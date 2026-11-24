@@ -4,10 +4,10 @@
 const { test, expect } = require('@playwright/test');
 
 const PAGES = [
-  { path: '/index.html', page: 'home', title: /Portfolio/ },
-  { path: '/code.html', page: 'code', title: /Code/ },
-  { path: '/hardware.html', page: 'hardware', title: /Hardware/ },
-  { path: '/design.html', page: 'design', title: /Design/ },
+  { path: '/', page: 'home', title: /Portfolio/ },
+  { path: '/code', page: 'code', title: /Code/ },
+  { path: '/hardware', page: 'hardware', title: /Hardware/ },
+  { path: '/design', page: 'design', title: /Design/ },
 ];
 
 // Every theme the engine lists except Original (which is the plain site).
@@ -61,14 +61,14 @@ test.describe('pages', () => {
 
 test.describe('navigation', () => {
   test('nav links go to each section and mark it active', async ({ page }) => {
-    await page.goto('/index.html');
-    for (const [label, file] of [['CODE', 'code.html'], ['HARDWARE', 'hardware.html'], ['DESIGN', 'design.html']]) {
+    await page.goto('/');
+    for (const [label, file] of [['CODE', '/code'], ['HARDWARE', '/hardware'], ['DESIGN', '/design']]) {
       await page.locator('.nav a', { hasText: label }).click();
       await expect(page).toHaveURL(new RegExp(`${file}$`));
       await expect(page.locator('.nav a.active')).toHaveText(label);
     }
     await page.locator('.logo').click();
-    await expect(page).toHaveURL(/index\.html$/);
+    await expect(page).toHaveURL(/127\.0\.0\.1:\d+\/$/);
   });
 
   test('internal links on every page point at files that exist', async ({ page, request }) => {
@@ -101,7 +101,7 @@ test.describe('navigation', () => {
 test.describe('light / dark', () => {
   test('toggle flips the scheme and remembers it across pages', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'light' });
-    await page.goto('/index.html');
+    await page.goto('/');
     const html = page.locator('html');
     await expect(html).toHaveAttribute('data-scheme', 'light');
 
@@ -124,7 +124,7 @@ test.describe('light / dark', () => {
 test.describe('themes', () => {
   test('Themes button opens the picker and choosing a theme applies it', async ({ page }) => {
     const problems = watchForProblems(page);
-    await page.goto('/index.html');
+    await page.goto('/');
     await page.locator('.tc-themes').click();
     const picker = page.locator('#theme-popover');
     await expect(picker).toBeVisible();
@@ -141,17 +141,17 @@ test.describe('themes', () => {
   });
 
   test('picking a theme on another page takes you home with it on', async ({ page }) => {
-    await page.goto('/code.html');
+    await page.goto('/code');
     await page.locator('.tc-themes').click();
     await page.locator('#theme-popover [data-theme-choice="saas"]').click();
-    await expect(page).toHaveURL(/index\.html$/);
+    await expect(page).toHaveURL(/127\.0\.0\.1:\d+\/$/);
     await expect(page.locator('#theme-root.theme-saas')).toBeAttached();
   });
 
   for (const id of THEMES) {
     test(`theme "${id}" mounts without errors`, async ({ page }) => {
       const problems = watchForProblems(page);
-      await page.goto(`/index.html#preview-${id}`);
+      await page.goto(`/#preview-${id}`);
       await expect(page.locator(`#theme-root.theme-${id}`)).toBeAttached();
       await expect(page.locator('html')).toHaveAttribute('data-theme-ready', '');
       await expect(page.locator('html')).not.toHaveClass(/theme-loading/);
@@ -162,7 +162,7 @@ test.describe('themes', () => {
   }
 
   test('Design page theme strip loads when scrolled to', async ({ page }) => {
-    await page.goto('/design.html');
+    await page.goto('/design');
     await page.locator('[data-themes-ui]').scrollIntoViewIfNeeded();
     await expect(page.locator('.strip-list .strip-row').first()).toBeVisible();
   });

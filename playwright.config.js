@@ -1,5 +1,5 @@
 // Playwright config for the portfolio. The site is plain static files, so the
-// tests serve the repo folder with Python's built-in server and browse it.
+// tests serve the repo folder with serve.py (Python, but /code loads code.html like GitHub Pages) and browse it.
 const { defineConfig, devices } = require('@playwright/test');
 
 const PORT = 4173;
@@ -20,8 +20,8 @@ module.exports = defineConfig({
     { name: 'mobile', use: { ...devices['Pixel 7'] } },
   ],
   webServer: {
-    command: `python3 -m http.server ${PORT} --bind 127.0.0.1`,
-    url: `http://127.0.0.1:${PORT}/index.html`,
+    command: `python3 serve.py ${PORT}`,
+    url: `http://127.0.0.1:${PORT}/`,
     reuseExistingServer: !process.env.CI,
     stderr: 'ignore', // Python logs every request; keep test output readable
   },

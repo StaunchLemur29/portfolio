@@ -28,7 +28,7 @@ themes/
    { id: 'vapor', group: 'Creative', name: 'Vaporwave', swatch: ['#ff71ce', '#01cdfe', '#05ffa1'],
      short: 'Pink, teal, 1995.', desc: 'A longer sentence about the theme.' },
    ```
-4. While you work, open any page with `#preview-vapor` on the end, e.g. `code.html#preview-vapor`.
+4. While you work, open any page with `#preview-vapor` on the end, e.g. `/code#preview-vapor`.
    It shows your theme without saving it. (Close and reopen the tab to see changes, since a
    change to just the `#...` part doesn't reload.)
 5. Make its thumbnail: `python themes/screenshot_themes.py vapor` (see below).

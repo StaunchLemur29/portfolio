@@ -141,7 +141,7 @@
     return {
       page: doc.body.dataset.page || 'page',
       name: text(doc, '.logo'),
-      homeHref: hrefOf(doc.querySelector('.logo')) || 'index.html',
+      homeHref: hrefOf(doc.querySelector('.logo')) || '/',
       nav: [...doc.querySelectorAll('.nav a')].map((a) => ({
         label: text(a), href: hrefOf(a), active: a.classList.contains('active'),
       })),
@@ -172,7 +172,7 @@
   // Picking a theme from a picker starts it on the home page.
   // (Already on home? It just switches in place.)
   function chooseTheme(id) {
-    const home = new URL(document.querySelector('.logo')?.getAttribute('href') || 'index.html', location.href);
+    const home = new URL(document.querySelector('.logo')?.getAttribute('href') || '/', location.href);
     if (isPreview || document.body.dataset.page === 'home' || !findTheme(id)) return setTheme(id, { chosen: true });
     saveTheme(id);
     location.href = home.href;
@@ -277,7 +277,7 @@
     const url = new URL(a.href, location.href);
     if (url.origin !== location.origin) return false;
     if (url.pathname === location.pathname && url.hash) return false;
-    return /(\.html?|\/)$/.test(url.pathname);
+    return /(\.html?|\/|\/[^./]+)$/.test(url.pathname);   // /code, /code.html or /
   }
 
 
