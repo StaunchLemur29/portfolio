@@ -521,7 +521,6 @@ img.thumb {
 }
 
 .tp-row[aria-pressed="true"] .tp-num { color: var(--accent); }
-.tp-row[aria-pressed="true"] .tp-name::after { content: " ●"; color: var(--accent); font-size: 9px; vertical-align: 2px; }
 
 
 /* ---------- 7. Design page: the theme previews at the bottom ---------- */
